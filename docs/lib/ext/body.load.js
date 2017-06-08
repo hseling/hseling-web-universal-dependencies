@@ -1,5 +1,5 @@
 var root = './lib/'; // filled in by jekyll
-alert(document.location.protocol);
+// alert(document.location.protocol);
 var protocol = (document.location.protocol !== 'file:') ? document.location.protocol : 'http:';
 head.js(
     // External libraries
@@ -26,8 +26,6 @@ head.js(
     root + 'local/collections.js',
 
     // NOTE: non-local libraries
-    // document.location.protocol + '//spyysalo.github.io/annodoc/lib/local/annodoc.js',
-    // document.location.protocol + '//spyysalo.github.io/conllu.js/conllu.js',
     protocol + '//spyysalo.github.io/annodoc/lib/local/annodoc.js',
     protocol + '//spyysalo.github.io/conllu.js/conllu.js',
     //JNW stuff

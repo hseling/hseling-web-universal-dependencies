@@ -1,0 +1,50 @@
+[{
+  "data": {
+    "id": "n1",
+    "type": "I",
+    "length": "1em"
+  }
+}, {
+  "data": {
+    "id": "n2",
+    "type": "wanna",
+    "length": "5em"
+  }
+}, {
+  "data": {
+    "id": "n3",
+    "type": "skate",
+    "length": "5em"
+  }
+}, {
+  "data": {
+    "id": "n4",
+    "type": ".",
+    "length": "1em"
+  },
+  "grabbable": false
+}, {
+  "data": {
+    "id": "e1",
+    "source": "n2",
+    "target": "n1",
+    "label": "subj",
+    "ctrl": [120, 110, 120]
+  }
+}, {
+  "data": {
+    "id": "e2",
+    "source": "n2",
+    "target": "n3",
+    "label": "sent",
+    "ctrl": [-120, -110, -120]
+  }
+}, {
+  "data": {
+    "id": "e3",
+    "source": "n2",
+    "target": "n4",
+    "label": "punct",
+    "ctrl": [-240, -230, -240]
+  }
+}]

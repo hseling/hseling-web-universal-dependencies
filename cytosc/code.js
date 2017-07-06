@@ -16,8 +16,10 @@ Promise.all([
       autounselectify: true,
       autoungrabify: true,
 
+
       layout: {
         name: 'grid',
+        condense: true,
         cols: 4,
         sort: function( a, b ){
           if( a.id() < b.id() ){

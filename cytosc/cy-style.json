@@ -23,7 +23,8 @@
     "text-margin-y": -10,
     "curve-style": "unbundled-bezier",
     "control-point-distances": "data(ctrl)",
-    "control-point-weights": "-0.1 0.5 1.05",
+    "control-point-weights": "0 0.2 0.8 1",
+    "edge-distances": "node-position",
     "label": "data(label)"
   }
 }]

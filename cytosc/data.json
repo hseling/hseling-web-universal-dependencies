@@ -21,15 +21,38 @@
     "id": "n4",
     "type": ".",
     "length": "1em"
-  },
-  "grabbable": false
+  }
+}, {
+  "data": {
+    "id": "n5-pos",
+    "type": "PRON",
+    "length": "4em"
+  }
+}, {
+  "data": {
+    "id": "n6-pos",
+    "type": "vbmod",
+    "length": "5em"
+  }
+}, {
+  "data": {
+    "id": "n7-pos",
+    "type": "V",
+    "length": "1em"
+  }
+}, {
+  "data": {
+    "id": "n8-pos",
+    "type": "PUNCT",
+    "length": "5em"
+  }
 }, {
   "data": {
     "id": "e1",
     "source": "n2",
     "target": "n1",
     "label": "subj",
-    "ctrl": [120, 110, 120]
+    "ctrl": [120, 120, 120, 120]
   }
 }, {
   "data": {
@@ -37,7 +60,7 @@
     "source": "n2",
     "target": "n3",
     "label": "sent",
-    "ctrl": [-120, -110, -120]
+    "ctrl": [-120, -120, -120, -120]
   }
 }, {
   "data": {
@@ -45,6 +68,6 @@
     "source": "n2",
     "target": "n4",
     "label": "punct",
-    "ctrl": [-240, -230, -240]
+    "ctrl": [-240, -240, -240, -240]
   }
 }]

@@ -4,7 +4,6 @@
     "height": 20,
     "width": "data(length)",
     "background-color": "#7fa2ff",
-    "opacity": 0.900,
     "shape": "roundrectangle",
     "label": "data(type)",
     "text-valign": "center",
@@ -17,7 +16,11 @@
   "style": {
     "width": 3,
     "opacity": 0.766,
-    "line-color": "#111",
+    "line-color": "#111"
+  }
+}, {
+  "selector": "edge.dependency",
+  "style": {
     "target-arrow-shape": "triangle",
     "target-arrow-color": "#111",
     "text-margin-y": -10,
@@ -26,5 +29,9 @@
     "control-point-weights": "0 0.2 0.8 1",
     "edge-distances": "node-position",
     "label": "data(label)"
+  }
+}, {"selector": "edge.pos",
+  "style": {
+    "curve-style": "haystack"
   }
 }]

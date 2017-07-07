@@ -52,22 +52,53 @@
     "source": "n2",
     "target": "n1",
     "label": "subj",
-    "ctrl": [120, 120, 120, 120]
-  }
+    "ctrl": [40, 40, 40, 40]
+  },
+  "classes": "dependency"
 }, {
   "data": {
     "id": "e2",
     "source": "n2",
     "target": "n3",
     "label": "sent",
-    "ctrl": [-120, -120, -120, -120]
-  }
+    "ctrl": [-40, -40, -40, -40]
+  },
+  "classes": "dependency"
 }, {
   "data": {
     "id": "e3",
     "source": "n2",
     "target": "n4",
     "label": "punct",
-    "ctrl": [-240, -240, -240, -240]
-  }
+    "ctrl": [-80, -80, -80, -80]
+  },
+  "classes": "dependency"
+}, {
+  "data": {
+    "id": "e1-pos",
+    "source": "n1",
+    "target": "n5-pos"
+  },
+  "classes": "pos"
+}, {
+  "data": {
+    "id": "e2-pos",
+    "source": "n2",
+    "target": "n6-pos"
+  },
+  "classes": "pos"
+}, {
+  "data": {
+    "id": "e3-pos",
+    "source": "n3",
+    "target": "n7-pos"
+  },
+  "classes": "pos"
+}, {
+  "data": {
+    "id": "e4-pos",
+    "source": "n4",
+    "target": "n8-pos"
+  },
+  "classes": "pos"
 }]

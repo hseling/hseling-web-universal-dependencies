@@ -7,7 +7,7 @@ function toConllu() {
         // $("#indata").val(cgParse(text));
         alert("The option is not supported yet :( ");
     }
-    keyUpFunc();
+    drawTree();
 }
 
 

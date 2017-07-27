@@ -54,7 +54,7 @@ function writeArc(sourceNode, destNode) {
     $("#indata").val(sent.serial);
 
     // redraw the tree
-    keyUpFunc();
+    drawTree();
 }
 
 
@@ -86,7 +86,7 @@ function arcKeyUp(key) {
     if (key.which == DEL_KEY) {
         removeArc();
     } else if (key.which == BACKSPACE) {
-        keyUpFunc();
+        drawTree();
     } else if (key.which == D) {
         moveArc();
     } else if (key.which == I) {
@@ -114,7 +114,7 @@ function removeArc(argument) {
 
     // redraw the tree
     $("#indata").val(sent.serial);
-    keyUpFunc();
+    drawTree();
 }
 
 
@@ -150,5 +150,5 @@ function editDeprel() {
 
     // rewriting the tree
     $("#indata").val(sent.serial);
-    keyUpFunc();   
+    drawTree();   
 }

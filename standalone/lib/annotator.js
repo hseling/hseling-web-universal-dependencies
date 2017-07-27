@@ -27,7 +27,14 @@ function main() {
 
     head.ready(function() {
 
-        $("#indata").keyup(keyUpFunc);
+        fetch('running').then(
+            function(data) {
+                console.log("Response from server, status: " + data["status"]);
+                getCorpusData();
+                redefineHandlers();
+            });
+
+        $("#indata").keyup(drawTree);
         loadFromUrl();
     });
 
@@ -53,7 +60,7 @@ function loadFromUrl(argument) {
 
         $("#indata").val(variables[0]);
 
-        keyUpFunc();
+        drawTree();
     }
 }
 
@@ -112,7 +119,7 @@ function showDataIndiv() {
     document.getElementById('indata').value = (RESULTS[CURRENTSENTENCE]);
     document.getElementById('currentsen').innerHTML = (CURRENTSENTENCE+1);
     document.getElementById('totalsen').innerHTML = AVAILABLESENTENCES;
-    keyUpFunc();
+    drawTree();
 }
 
 function prevSenSent() {
@@ -143,15 +150,7 @@ function nextSenSent() {
 
 //Export Corpora to file
 function exportCorpora() {
-            
-    RESULTS[CURRENTSENTENCE] = document.getElementById("indata").value;
-    var finalcontent = "";
-    for(var x=0; x < RESULTS.length; x++){
-        finalcontent = finalcontent + RESULTS[x];
-        if(x != ((RESULTS.length)-1)){
-            finalcontent = finalcontent + "\n\n";
-        }
-    }
+    var finalcontent = getTreebank();
             
     var link = document.createElement('a');
     var mimeType = 'text/plain';
@@ -160,9 +159,23 @@ function exportCorpora() {
     link.setAttribute('href', 'data:' + mimeType + ';charset=utf-8,' + encodeURIComponent(finalcontent));
     link.click();
 }
+
+
+function getTreebank() {
+    /* Returns the current treebank. */
+    RESULTS[CURRENTSENTENCE] = document.getElementById("indata").value;
+    var finalcontent = "";
+    for(var x=0; x < RESULTS.length; x++){
+        finalcontent = finalcontent + RESULTS[x];
+        if(x != ((RESULTS.length)-1)){
+            finalcontent = finalcontent + "\n\n";
+        }
+    }
+    return finalcontent;
+}
         
 //KeyUp function
-function keyUpFunc() {
+function drawTree() {
 
     var content = $("#indata").val();
     FORMAT = detectFormat(content);
@@ -206,6 +219,69 @@ function detectFormat(content) {
     }
 
     return FORMAT
+}
+
+
+function guid() {
+    /* Note: such values are not genuine GUIDs */
+    function s4() {
+      return Math.floor((1 + Math.random()) * 0x10000)
+        .toString(16)
+        .substring(1);
+    }
+    return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+    s4() + '-' + s4() + s4() + s4();
+}
+
+
+function saveOnServer(evt) {
+    var finalcontent = getTreebank();
+
+    // editing url to create a unique link
+    // if (!location.search){
+    //     location.search = "treebank_id=" + guid();
+    // } else if (!location.search.includes("treebank_id")) {
+    //     location.search = location.search + "&treebank_id=" + guid();
+    // };
+    
+
+    // sending data on server
+    var treebank_id = location.href.split('/')[4];
+    $.ajax({
+        type: "POST",
+        url: '/save',
+        data: {
+            "content": finalcontent,
+            "treebank_id": treebank_id
+        },
+        dataType: "json",
+        success: function(data){
+            console.log('Load was performed.');
+        }
+    });
+}
+
+
+function redefineHandlers() {
+    // body...
+}
+
+
+function getCorpusData() {
+    var treebank_id = location.href.split('/')[4];
+    $.ajax({
+        type: "POST",
+        url: "/load",
+        data: {"treebank_id": treebank_id},
+        dataType: "json",
+        success: loadData
+    });
+}
+
+
+function loadData(data) {
+    CONTENTS = data["content"];
+    loadDataInIndex();
 }
 
 

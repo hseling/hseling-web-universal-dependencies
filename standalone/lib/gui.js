@@ -7,8 +7,10 @@ This scripts contains makes support for graphical editing.
 var ACTIVE = "#2653c9";
 var NORMAL = "#7fa2ff";
 var FANCY = "#cc22fc";
+var POS_COLOR = "#afa2ff";
 var DEL_KEY = 46;
 var BACKSPACE = 8;
+var ENTER = 13;
 var D = 68;
 var I = 73;
 
@@ -60,7 +62,7 @@ function writeArc(sourceNode, destNode) {
 
 function selectArc() {
     /* 
-    Activated when an arc is selected. Changes style and activates arcKeyUp.
+    Activated when an arc is selected. Adds classes showing what is selected.
     */
 
     // if the user clicked an activated node
@@ -81,28 +83,35 @@ function selectArc() {
         cy.$("#" + destNodeId).addClass("arc-selected");
     }
 
-
-
-
-
     // for identifying the node
     cy.$("#" + destNodeId).data("state", "arc-dest");
-
-    $(document).keyup(arcKeyUp);
 }
 
 
-function arcKeyUp(key) {
+function keyUpClassifier(key) {
 
-    if (key.which == DEL_KEY) {
-        removeArc();
-    } else if (key.which == BACKSPACE) {
-        drawTree();
-    } else if (key.which == D) {
-        moveArc();
-    } else if (key.which == I) {
-        editDeprel();
+    // looking if there are selected arcs
+    var selArcs = cy.$("edge.dependency.selected");
+    // looking if it is in an input mode
+    var inp = $(".activated#mute");
+
+    if (selArcs.length) {
+        console.log('selected');
+        if (key.which == DEL_KEY) {
+            removeArc();
+        } else if (key.which == BACKSPACE) {
+            drawTree();
+        } else if (key.which == D) {
+            moveArc();
+        } else if (key.which == I) {
+            editDeprel();
+        }
+    } else if (inp.length) {
+        if (key.which == ENTER) {
+            writePOS();
+        }
     }
+
 
 }
 
@@ -147,7 +156,7 @@ function editDeprel() {
     sent.serial = $("#indata").val();
 
     // getting the deprel and the head
-	// var actNode = cy.$(".activated");
+    // var actNode = cy.$(".activated");
 
     var destNode = cy.$(".arc-selected");
     console.log(destNode);
@@ -162,4 +171,41 @@ function editDeprel() {
     // rewriting the tree
     $("#indata").val(sent.serial);
     drawTree();   
+}
+
+
+function changePOS() {
+    this.addClass("input");
+
+    var x = this.renderedPosition("x");
+    var y = this.relativePosition("y");
+
+    var width = this.renderedWidth();
+    var height = this.renderedHeight();
+
+    $("#mute").addClass("activated");
+    $("#POS").css("display", "inline")
+        .css("bottom", y - parseInt(height*0.55))
+        .css("left", x - parseInt(width/2)*1.1)
+        .css("height", height)
+        .css("width", width)
+        .css("border", "2px solid black")
+        .css("background-color", POS_COLOR)
+        .css("color", "black")
+        .attr("value", this.data("pos"));
+
+    $("#POS").focus();
+}
+
+
+function writePOS() {
+    var posInp = $("#POS").val();
+    var activeNode = cy.$(".input");
+    var nodeId = activeNode.id().slice(2) - 1;
+
+    var sent = new conllu.Sentence();
+    sent.serial = $("#indata").val();
+    sent.tokens[nodeId].upostag = posInp; // TODO: think about xpostag changing support
+    $("#indata").val(sent.serial);
+    drawTree();
 }

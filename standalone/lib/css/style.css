@@ -63,7 +63,21 @@ span.tt {
   width: 1500px;
   height: 300px;
   display: block;
-  z-index: 999;
+}
+
+#POS {
+  position: absolute;
+  display: none;
+  opacity: 0.99;
+}
+
+.activated#mute {
+  position: absolute;
+  width: 1500px;
+  height: 300px;
+  display: block;
+  background-color: rgba(0,0,0,0.25);;
+  z-index: 800;
 }
 
 #notebox {

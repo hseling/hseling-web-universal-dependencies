@@ -31,7 +31,6 @@ function main() {
             function(data) {
                 console.log("Response from server, status: " + data["status"]);
                 getCorpusData();
-                redefineHandlers();
             });
 
         $("#indata").keyup(drawTree);
@@ -43,7 +42,9 @@ function main() {
 
 
 function addHandlers() {
-    cy.on('click', 'node', drawArcs);
+    $(document).keyup(keyUpClassifier);
+    cy.on('click', 'node.wf', drawArcs);
+    cy.on('click', 'node.pos', changePOS);
     cy.on('click', 'edge', selectArc);
 }
 
@@ -174,7 +175,7 @@ function getTreebank() {
     return finalcontent;
 }
         
-//KeyUp function
+
 function drawTree() {
 
     var content = $("#indata").val();
@@ -184,7 +185,6 @@ function drawTree() {
 
     if (FORMAT == "CoNLL-U") {
         conlluDraw(content);
-        // setTimeout(addHandlers, 500);
         addHandlers();
     }
 
@@ -236,15 +236,7 @@ function guid() {
 
 function saveOnServer(evt) {
     var finalcontent = getTreebank();
-
-    // editing url to create a unique link
-    // if (!location.search){
-    //     location.search = "treebank_id=" + guid();
-    // } else if (!location.search.includes("treebank_id")) {
-    //     location.search = location.search + "&treebank_id=" + guid();
-    // };
     
-
     // sending data on server
     var treebank_id = location.href.split('/')[4];
     $.ajax({
@@ -259,11 +251,6 @@ function saveOnServer(evt) {
             console.log('Load was performed.');
         }
     });
-}
-
-
-function redefineHandlers() {
-    // body...
 }
 
 

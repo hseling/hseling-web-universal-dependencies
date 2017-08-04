@@ -31,8 +31,9 @@ function main() {
             function(data) {
                 console.log("Response from server, status: " + data["status"]);
                 getCorpusData();
-            });
+            }); // TODO: to get rid of the error, read about promisses
 
+        $(document).keyup(keyUpClassifier); // TODO: causes errors if called before the cy is initialised
         $("#indata").keyup(drawTree);
         loadFromUrl();
     });
@@ -42,10 +43,10 @@ function main() {
 
 
 function addHandlers() {
-    $(document).keyup(keyUpClassifier);
     cy.on('click', 'node.wf', drawArcs);
-    cy.on('click', 'node.pos', changePOS);
+    cy.on('click', 'node.pos', changeInp);
     cy.on('click', 'edge', selectArc);
+    cy.on('cxttapend', 'node.wf', changeInp);
 }
 
 
@@ -183,8 +184,13 @@ function drawTree() {
 
     $("#detected").html("Detected: " + FORMAT + " format");
 
+
     if (FORMAT == "CoNLL-U") {
         conlluDraw(content);
+
+        var inpSupport = $("<div id='mute'><input type='text' id='pos'/>"
+                           + "<input type='text' id='wf'/></div>");
+        $("#cy").prepend(inpSupport);
         addHandlers();
     }
 

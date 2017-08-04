@@ -13,6 +13,7 @@ var BACKSPACE = 8;
 var ENTER = 13;
 var D = 68;
 var I = 73;
+var T = 84;
 
 function drawArcs(evt) {
     /* Called when a node is clicked. */
@@ -20,6 +21,7 @@ function drawArcs(evt) {
     // if the user clicked an activated node
     if (this.hasClass("activated")) {
         this.removeClass("activated");
+        this.removeClass("retokenize");
     } else {
         // look for other activated nodes
         var actNode = cy.$(".activated");
@@ -92,8 +94,14 @@ function keyUpClassifier(key) {
 
     // looking if there are selected arcs
     var selArcs = cy.$("edge.dependency.selected");
-    // looking if it is in an input mode
-    var inp = $(".activated#mute");
+    // looking if there is a POS label to be modified
+    var posInp = $(".activated#pos");
+    // looking if there is a wf label to be modified
+    var wfInp = $(".activated#wf");
+    // looking if some wf node is selected
+    var wf = cy.$("node.wf.activated");
+    // looking for a node to be tokenised
+    var toBretokenized = cy.$("node.wf.activated.retokenize");
 
     if (selArcs.length) {
         console.log('selected');
@@ -106,12 +114,21 @@ function keyUpClassifier(key) {
         } else if (key.which == I) {
             editDeprel();
         }
-    } else if (inp.length) {
+    } else if (posInp.length) {
         if (key.which == ENTER) {
-            writePOS();
+            writePOS(posInp);
+        }
+    } else if (wfInp.length) {
+        if (key.which == ENTER) {
+            writeWF(wfInp);
+        }
+    } else if (toBretokenized.length == 1) {
+        retokenize(key); // developing, not ready yet
+    } else if (wf.length == 1) {
+        if (key.which == T) {
+            wf.addClass("retokenize");
         }
     }
-
 
 }
 
@@ -174,38 +191,93 @@ function editDeprel() {
 }
 
 
-function changePOS() {
-    this.addClass("input");
+function changeInp() {
 
+    var selector, color, label;
+
+    // defining which part of the tree needs to be changed
+    if (this.hasClass("pos")) {
+        selector = "#pos";
+        color = POS_COLOR;
+        label = "pos";
+    } else if (this.hasClass("wf")) {
+        selector = "#wf";
+        color = NORMAL;
+        label = "form";
+    }
+
+    this.addClass("input");
     var x = this.renderedPosition("x");
     var y = this.relativePosition("y");
-
     var width = this.renderedWidth();
     var height = this.renderedHeight();
 
+    // TODO: font size
     $("#mute").addClass("activated");
-    $("#POS").css("display", "inline")
+    console.log($(selector));
+    $(selector).css("display", "inline")
         .css("bottom", y - parseInt(height*0.55))
         .css("left", x - parseInt(width/2)*1.1)
         .css("height", height)
         .css("width", width)
         .css("border", "2px solid black")
-        .css("background-color", POS_COLOR)
+        .css("background-color", color)
         .css("color", "black")
-        .attr("value", this.data("pos"));
+        .attr("value", this.data(label))
+        .addClass("activated");
 
-    $("#POS").focus();
+    $(selector).focus();
 }
 
 
-function writePOS() {
-    var posInp = $("#POS").val();
+function writePOS(posInp) {
     var activeNode = cy.$(".input");
     var nodeId = activeNode.id().slice(2) - 1;
 
     var sent = new conllu.Sentence();
     sent.serial = $("#indata").val();
-    sent.tokens[nodeId].upostag = posInp; // TODO: think about xpostag changing support
+    sent.tokens[nodeId].upostag = posInp.val(); // TODO: think about xpostag changing support
     $("#indata").val(sent.serial);
+
     drawTree();
+}
+
+
+function writeWF(wfInp) {
+    var activeNode = cy.$(".input");
+    var nodeId = activeNode.id().slice(2) - 1;
+
+    var newToken = wfInp.val();
+    if (newToken.includes(" ")) {
+        console.log("going to retokenize it");
+    } else {
+
+        // TODO: this almost copies writePOS. DRY.
+        var sent = new conllu.Sentence();
+        sent.serial = $("#indata").val();
+        sent.tokens[nodeId].form = wfInp.val();
+        $("#indata").val(sent.serial);
+
+        drawTree();
+    }
+}
+
+
+function changeTokenization() {
+    // body...
+}
+
+
+function retokenize(key) {
+    var sym = String.fromCharCode(key.keyCode);
+    console.log(sym);
+
+    var node = cy.$(".retokenize");
+    var form = node.data("form");
+
+    if (form.includes(sym)) {
+        console.log("YEAH!");
+    }
+
+    console.log("key: " + key.keyCode);
 }

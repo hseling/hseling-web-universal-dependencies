@@ -65,7 +65,13 @@ span.tt {
   display: block;
 }
 
-#POS {
+#pos {
+  position: absolute;
+  display: none;
+  opacity: 0.99;
+}
+
+#wf {
   position: absolute;
   display: none;
   opacity: 0.99;

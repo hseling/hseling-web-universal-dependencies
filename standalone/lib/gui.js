@@ -214,7 +214,6 @@ function changeInp() {
 
     // TODO: font size
     $("#mute").addClass("activated");
-    console.log($(selector));
     $(selector).css("display", "inline")
         .css("bottom", y - parseInt(height*0.55))
         .css("left", x - parseInt(width/2)*1.1)
@@ -249,26 +248,62 @@ function writeWF(wfInp) {
 
     var newToken = wfInp.val();
     if (newToken.includes(" ")) {
-        console.log("going to retokenize it");
+        changeTokenization(newToken, nodeId);
     } else {
 
         // TODO: this almost copies writePOS. DRY.
         var sent = new conllu.Sentence();
         sent.serial = $("#indata").val();
-        sent.tokens[nodeId].form = wfInp.val();
+        sent.tokens[nodeId].form = newToken;
         $("#indata").val(sent.serial);
-
         drawTree();
     }
 }
 
 
-function changeTokenization() {
-    // body...
+function changeTokenization(oldToken, nodeId) {
+    var newTokens = oldToken.split(" ");
+
+    var sent = new conllu.Sentence(); // DRY
+    sent.serial = $("#indata").val();
+    // changing the first part
+    sent.tokens[nodeId].form = newTokens[0];
+
+    // creating inserting the second part
+    var restTok = formNewToken({"id": nodeId + 2, "form": newTokens[1]});
+    sent.tokens.splice(nodeId + 1, 0, restTok);
+
+    $.each(sent.tokens, function(n, tok){
+        if (tok.head > nodeId + 1){
+            tok.head = +tok.head + 1; // head correction after indices shift
+        } else if (n > nodeId + 1) {
+            console.log("before: " + tok.id);
+            tok.id = tok.id + 1; // renumbering
+            console.log("after: " + tok.id);
+        };
+    });
+
+    console.log(sent.serial);
+    $("#indata").val(sent.serial);
+    drawTree();
+}
+
+
+function formNewToken(attrs) {
+    /* Takes a dictionary of attributes. Creates a new token, assigns
+    values to the attributes given. Returns the new token. */
+
+    var newToken = new conllu.Token();
+    $.each(attrs, function(attr, val){
+        newToken[attr] = val;
+    });
+    return newToken;
 }
 
 
 function retokenize(key) {
+    /* Dead now. x_x */
+
     var sym = String.fromCharCode(key.keyCode);
     console.log(sym);
 

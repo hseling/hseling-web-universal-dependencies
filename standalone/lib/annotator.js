@@ -44,9 +44,10 @@ function main() {
 
 function addHandlers() {
     cy.on('click', 'node.wf', drawArcs);
-    cy.on('click', 'node.pos', changeInp);
     cy.on('click', 'edge', selectArc);
+    cy.on('click', 'node.pos', changeInp);
     cy.on('cxttapend', 'node.wf', changeInp);
+    cy.on('cxttapend', 'edge.dependency', changeInp);
 }
 
 
@@ -188,8 +189,10 @@ function drawTree() {
     if (FORMAT == "CoNLL-U") {
         conlluDraw(content);
 
-        var inpSupport = $("<div id='mute'><input type='text' id='pos'/>"
-                           + "<input type='text' id='wf'/></div>");
+        var inpSupport = $("<div id='mute'>"
+            + "<input type='text' id='pos' class='hidden-input'/>"
+            + "<input type='text' id='wf' class='hidden-input'/>"
+            + "<input type='text' id='deprel' class='hidden-input'/></div>");
         $("#cy").prepend(inpSupport);
         addHandlers();
     }

@@ -52,13 +52,9 @@ function writeArc(sourceNode, destNode) {
     toConllu();
 
     // replace the old line of destNode with the one with HEAD
-    var sent = new conllu.Sentence();
-    sent.serial = $("#indata").val();
+    var sent = buildSent();
     sent.tokens[destIndex - 1].head = Number(sourceIndex);
-    $("#indata").val(sent.serial);
-
-    // redraw the tree
-    drawTree();
+    redrawTree(sent);
 }
 
 
@@ -98,6 +94,8 @@ function keyUpClassifier(key) {
     var posInp = $(".activated#pos");
     // looking if there is a wf label to be modified
     var wfInp = $(".activated#wf");
+    // looking if there is a deprel label to be modified
+    var deprelInp = $(".activated#deprel");
     // looking if some wf node is selected
     var wf = cy.$("node.wf.activated");
     // looking for a node to be tokenised
@@ -111,9 +109,7 @@ function keyUpClassifier(key) {
             drawTree();
         } else if (key.which == D) {
             moveArc();
-        } else if (key.which == I) {
-            editDeprel();
-        }
+        };
     } else if (posInp.length) {
         if (key.which == ENTER) {
             writePOS(posInp);
@@ -122,8 +118,12 @@ function keyUpClassifier(key) {
         if (key.which == ENTER) {
             writeWF(wfInp);
         }
+    } else if (deprelInp.length) {
+        if (key.which == ENTER) {
+            writeDeprel(deprelInp);
+        }
     } else if (toBretokenized.length == 1) {
-        retokenize(key); // developing, not ready yet
+        retokenize(key); // is not used now
     } else if (wf.length == 1) {
         if (key.which == T) {
             wf.addClass("retokenize");
@@ -137,8 +137,7 @@ function removeArc(argument) {
     /* Removes all the selected edges. */
 
     var destNodes = cy.$("node[state='arc-dest']");
-    var sent = new conllu.Sentence();
-    sent.serial = $("#indata").val();
+    var sent = buildSent();
 
     // support for multiple arcs
     $.each(destNodes, function(i, node) {
@@ -149,9 +148,7 @@ function removeArc(argument) {
         sent.tokens[destIndex - 1].deprel = undefined;
     })
 
-    // redraw the tree
-    $("#indata").val(sent.serial);
-    drawTree();
+    redrawTree(sent);
 }
 
 
@@ -169,8 +166,7 @@ function moveArc() {
 
 function editDeprel() {
     // building the CoNLL-U sent
-    var sent = new conllu.Sentence();
-    sent.serial = $("#indata").val();
+    var sent = buildSent();
 
     // getting the deprel and the head
     // var actNode = cy.$(".activated");
@@ -186,12 +182,17 @@ function editDeprel() {
     sent.tokens[destIndex].deprel = deprel;
 
     // rewriting the tree
-    $("#indata").val(sent.serial);
-    drawTree();   
+    redrawTree(sent);   
 }
 
 
 function changeInp() {
+
+    this.addClass("input");
+    var x = this.renderedPosition("x");
+    var y = this.relativePosition("y");
+    var width = this.renderedWidth();
+    var height = this.renderedHeight();
 
     var selector, color, label;
 
@@ -204,13 +205,20 @@ function changeInp() {
         selector = "#wf";
         color = NORMAL;
         label = "form";
-    }
+        y = this.renderedPosition("y");
+        console.log("y: " + y);
+        y = y*0.4;
+    } else if (this.hasClass("dependency")) {
+        selector = "#deprel";
+        color = "white";
+        label = "label";
+        var coord = findEdgesPos(this);
+        x = coord[0];
+        y = coord[1];
+        width = 100; // TODO: make a subtlier sizing
+        height = 40;
+    };
 
-    this.addClass("input");
-    var x = this.renderedPosition("x");
-    var y = this.relativePosition("y");
-    var width = this.renderedWidth();
-    var height = this.renderedHeight();
 
     // TODO: font size
     $("#mute").addClass("activated");
@@ -229,43 +237,69 @@ function changeInp() {
 }
 
 
+function findEdgesPos(edge) {
+    var sourceNode = edge.data("source");
+    var sourceX = cy.$("#" + sourceNode).renderedPosition("x");
+    var sourceY = cy.$("#" + sourceNode).renderedPosition("y");
+    var destNode = edge.data("target");
+    var destX = cy.$("#" + destNode).renderedPosition("x");
+    var lift = Math.abs(edge.data("ctrl")[0]);
+    var dist = sourceX - destX;
+    var y = sourceY;
+    var x = sourceX - dist/2;
+    return [x, y];
+}
+
+
+function find2change() {
+    /* Selects a cy element which is to be changed, returns its index. */
+    var active = cy.$(".input");
+    var Id = active.id().slice(2) - 1;
+    return Id;
+}
+
+
+function writeDeprel(deprelInp) {
+    /* Writes changes to deprel label. */
+    var edgeId = find2change();
+    var sent = buildSent();
+    sent.tokens[edgeId].deprel = deprelInp.val();
+    redrawTree(sent);
+}
+
 function writePOS(posInp) {
-    var activeNode = cy.$(".input");
-    var nodeId = activeNode.id().slice(2) - 1;
-
-    var sent = new conllu.Sentence();
-    sent.serial = $("#indata").val();
+    /* Writes changes to POS label. */
+    var nodeId = find2change();
+    var sent = buildSent();
     sent.tokens[nodeId].upostag = posInp.val(); // TODO: think about xpostag changing support
-    $("#indata").val(sent.serial);
-
-    drawTree();
+    redrawTree(sent);
 }
 
 
 function writeWF(wfInp) {
-    var activeNode = cy.$(".input");
-    var nodeId = activeNode.id().slice(2) - 1;
+    /* Either writes changes to token or retokenises the sentence. */
+    var nodeId = find2change();
 
-    var newToken = wfInp.val();
     if (newToken.includes(" ")) {
-        changeTokenization(newToken, nodeId);
+        changeTokenization(wfInp.val(), nodeId);
     } else {
 
         // TODO: this almost copies writePOS. DRY.
-        var sent = new conllu.Sentence();
-        sent.serial = $("#indata").val();
-        sent.tokens[nodeId].form = newToken;
-        $("#indata").val(sent.serial);
-        drawTree();
+        var sent = buildSent();
+        sent.tokens[nodeId].form = wfInp.val();
+        redrawTree(sent);
     }
 }
 
 
 function changeTokenization(oldToken, nodeId) {
-    var newTokens = oldToken.split(" ");
+    /* Takes a token to retokenize with space in it and the Id of the token.
+    Creates the new tokens, makes indices and head shifting, redraws the tree.
+    All the attributes default to belong to the first part. */
 
-    var sent = new conllu.Sentence(); // DRY
-    sent.serial = $("#indata").val();
+    var newTokens = oldToken.split(" ");
+    var sent = buildSent();
+
     // changing the first part
     sent.tokens[nodeId].form = newTokens[0];
 
@@ -278,15 +312,11 @@ function changeTokenization(oldToken, nodeId) {
             tok.head = +tok.head + 1; // head correction after indices shift
         };
         if (n > nodeId) {
-            console.log("before: " + tok.id);
             tok.id = tok.id + 1; // renumbering
-            console.log("after: " + tok.id);
         };
     });
 
-    console.log(sent.serial);
-    $("#indata").val(sent.serial);
-    drawTree();
+    redrawTree(sent);
 }
 
 
@@ -299,6 +329,22 @@ function formNewToken(attrs) {
         newToken[attr] = val;
     });
     return newToken;
+}
+
+
+function buildSent() {
+    /* Reads data from the textbox, returns a sent object. */
+    var sent = new conllu.Sentence();
+    sent.serial = $("#indata").val();
+    return sent;
+}
+
+
+function redrawTree(sent) {
+    /* Takes a Sentence object. Writes it to the textbox and calls
+    the function drawing the tree. */
+    $("#indata").val(sent.serial);
+    drawTree(); 
 }
 
 

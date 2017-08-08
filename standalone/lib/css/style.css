@@ -58,6 +58,11 @@ span.tt {
    cursor: default;
 }
 
+#help {
+  position: relative;
+  left: 1500px;
+}
+
 #cy {
   position: relative;
   width: 1500px;
@@ -69,6 +74,12 @@ span.tt {
   position: absolute;
   display: none;
   opacity: 0.99;
+}
+
+.hidden-input.activated {
+  display: inline;
+  border: 2px solid black;
+  color: black;
 }
 
 .activated#mute {

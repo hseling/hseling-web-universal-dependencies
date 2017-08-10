@@ -1,5 +1,11 @@
 "use strict"
 
+var ACTIVE = "#2653c9";
+var NORMAL = "#7fa2ff";
+var FANCY = "#cc22fc";
+var POS_COLOR = "#afa2ff";
+var ST_COLOR = "#bcd2ff"
+
 // require lib for CoNLL-U parsing
 var conllu = require("conllu");
 
@@ -32,20 +38,41 @@ function conllu2cy(content) {
     sent.serial = content;
     var graph = [];
     $.each(sent.tokens, function(n, token) {
-
-        var nodeId = (String(token.id).length > 1) ? token.id : "0" + token.id;
-
-        // creating token node
-        var nodeWF = token;
-        nodeWF.length = nodeWF.form.length + "em";
-        nodeWF.id = "nf" + nodeId;
-        nodeWF.state = "normal";
-        graph.push({"data": nodeWF, "classes": "wf"});
-
-        graph = makePOS(token, nodeId, graph);
-        graph = makeDependencies(token, nodeId, graph);
+        if (token.tokens){
+            var spId = "ns" + strWithZero(n);
+            console.log("spine: " + spId);
+            graph.push({"data": {"id": spId, "form": token.form}});
+            $.each(token.tokens, function(n, subTok) {
+                graph = createToken(graph, subTok, spId);
+            });
+        } else {
+            graph = createToken(graph, token);
+        }
     })
 
+    return graph;
+}
+
+
+function createToken(graph, token, spId) {
+    /* Takes the tree graph, a token object and the id of the supertoken.
+    Creates the wf node, the POS node and dependencies. Returns the graph. */
+
+    // handling empty form
+    if (token.form == undefined && spId) {token.form = token.lemma};
+    if (token.form == undefined) {token.form = " "};
+
+    var nodeId = strWithZero(token.id);
+    var nodeWF = token;
+
+    nodeWF.parent = spId;
+    nodeWF.length = nodeWF.form.length + "em";
+    nodeWF.id = "nf" + nodeId;
+    nodeWF.state = "normal";
+    graph.push({"data": nodeWF, "classes": "wf"});
+
+    graph = makePOS(token, nodeId, graph);
+    graph = makeDependencies(token, nodeId, graph);
     return graph;
 }
 
@@ -54,7 +81,7 @@ function makeDependencies(token, nodeId, graph) {
     /* if there is head, create an edge for dependency */
 
     if (token.head && token.head != 0) {
-        var head = (String(token.head).length > 1) ? token.head : "0" + token.head;
+        var head = strWithZero(token.head);
         var edgeDep = {
             "id": "ed" + nodeId,
             "source": "nf" + head,
@@ -116,82 +143,9 @@ function simpleIdSorting(n1, n2) {
 }
 
 
-// is defined in a js file, because fetch doesn't work offline in chrome
-var CY_STYLE = [{
-    "selector": "node",
-    "style": {
-        "height": 20,
-        "width": "data(length)",
-        "background-color": NORMAL,
-        "shape": "roundrectangle",
-        "text-valign": "center",
-        "text-halign": "center",
-        "border-color": "#000",
-        "border-width": 1
-    }
-}, {
-    "selector": "node.wf",
-    "style": {
-        "label": "data(form)"
-  }
-}, {
-    "selector": "node.wf.arc-selected",
-    "style": {
-        "border-color": FANCY
-    }
-}, {
-    "selector": "node.wf.activated",
-    "style": {
-        "background-color": ACTIVE
-    }
-}, {
-    "selector": "node.wf.activated.retokenize",
-    "style": {
-        "background-color": POS_COLOR,
-        "border-color": FANCY
-    }
-}, {
-    "selector": "node.wf.merge",
-    "style": {
-        "background-color": POS_COLOR,
-        "border-color": FANCY
-    }
-}, {
-  "selector": "node.pos",
-  "style": {
-    "label": "data(pos)",
-    "background-color": POS_COLOR
-  }
-}, {
-  "selector": "edge",
-  "style": {
-    "width": 3,
-    "opacity": 0.766,
-    "line-color": "#111"
-  }
-}, {
-  "selector": "edge.dependency",
-  "style": {
-    "target-arrow-shape": "triangle",
-    "target-arrow-color": "#111",
-    "text-margin-y": -10,
-    "curve-style": "unbundled-bezier",
-    "control-point-distances": "data(ctrl)",
-    "control-point-weights": "0 0.25 0.75 1",
-    "edge-distances": "node-position",
-    "label": "data(label)"
-  }
-}, {
-    "selector": "edge.dependency.selected",
-    "style": {
-        "line-color": FANCY,
-        "target-arrow-color": FANCY
-    }
-}, {"selector": "edge.pos",
-  "style": {
-    "curve-style": "haystack"
-  }
-}];
+function strWithZero(num) {
+    return (String(num).length > 1) ? "" + num : "0" + num;
+}
 
 
 /* TODO:

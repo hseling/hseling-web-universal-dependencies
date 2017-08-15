@@ -16,6 +16,29 @@ var M = 77;
 var SIDES = {39: "right", 37: "left"};
 
 
+function setUndos(undoManager) {
+    btnUndo = document.getElementById("btnUndo");
+    btnRedo = document.getElementById("btnRedo");
+
+    function updateUI() {
+        btnUndo.disabled = !undoManager.hasUndo();
+        btnRedo.disabled = !undoManager.hasRedo();
+    }
+    undoManager.setCallback(updateUI);
+
+    btnUndo.onclick = function () {
+        undoManager.undo();
+        updateUI();
+    };
+    btnRedo.onclick = function () {
+        undoManager.redo();
+        updateUI();
+    };
+
+    updateUI();
+}
+
+
 function drawArcs(evt) {
     /* Called when a node is clicked. */
 
@@ -33,7 +56,7 @@ function drawArcs(evt) {
         if (actNode.length == 1) {
             writeArc(actNode, this);
         }
-    }
+    };
 }
 
 
@@ -87,6 +110,15 @@ function selectArc() {
 }
 
 
+function selectSup() {
+    if (this.hasClass("supAct")) {
+        this.removeClass("supAct");
+    } else {
+        this.addClass("supAct");
+    }
+}
+
+
 function keyUpClassifier(key) {
 
     // looking if there are selected arcs
@@ -99,6 +131,8 @@ function keyUpClassifier(key) {
     var deprelInp = $(".activated#deprel");
     // looking if some wf node is selected
     var wf = cy.$("node.wf.activated");
+    // looking if a supertoken node is selected
+    var st = cy.$(".supAct"); // probably needs debugging
     // looking if some node waits to be merged
     var toMerge = cy.$(".merge");
     // looking if some node waits to be merged to supertoken
@@ -115,7 +149,7 @@ function keyUpClassifier(key) {
         };
     } else if (posInp.length) {
         if (key.which == ENTER) {
-            writePOS(posInp);
+            writePOS(posInp.val());
         };
     } else if (wfInp.length) {
         if (key.which == ENTER) {
@@ -140,6 +174,10 @@ function keyUpClassifier(key) {
     } else if (toSup.length) {
         if (key.which in SIDES) {
             mergeNodes(toSup, SIDES[key.which], "supertoken");
+        }
+    } else if (st.length) {
+        if (key.which == DEL_KEY) {
+            console.log("going to delete this guy");
         }
     }
     console.log(key.which);
@@ -270,7 +308,7 @@ function find2change() {
 }
 
 
-function writeDeprel(deprelInp) {
+function writeDeprel(deprelInp) { // TODO: DRY
     /* Writes changes to deprel label. */
     var edgeId = find2change();
     var sent = buildSent();
@@ -279,12 +317,26 @@ function writeDeprel(deprelInp) {
 }
 
 
-function writePOS(posInp) {
+
+
+function writePOS(posInp, nodeId) {
     /* Writes changes to POS label. */
-    var nodeId = find2change();
+    var nodeId = nodeId ? nodeId : find2change();
     var sent = buildSent();
-    sent.tokens[nodeId].upostag = posInp.val(); // TODO: think about xpostag changing support
+    var prevPOS = sent.tokens[nodeId].upostag;
+    sent.tokens[nodeId].upostag = posInp; // TODO: think about xpostag changing support
     redrawTree(sent);
+
+    window.undoManager.add({
+        undo: function(){
+            var sent = buildSent();
+            sent.tokens[nodeId].upostag = prevPOS;
+            redrawTree(sent);
+        },
+        redo: function(){
+            writePOS(posInp, nodeId);
+        }
+    });
 }
 
 

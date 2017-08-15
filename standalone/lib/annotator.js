@@ -38,6 +38,10 @@ function main() {
 
         $(document).keyup(keyUpClassifier); // TODO: causes errors if called before the cy is initialised
 
+        // undo support
+        window.undoManager = new UndoManager();
+        setUndos(window.undoManager);
+
         // trying to load the corpus from localStorage
         if (storageAvailable('localStorage')) {
             LOC_ST_AVALIABLE = true;
@@ -62,6 +66,7 @@ function addHandlers() {
     cy.on('click', 'node.wf', drawArcs);
     cy.on('click', 'edge', selectArc);
     cy.on('click', 'node.pos', changeInp);
+    cy.on('click', '$node > node', selectSup);
     cy.on('cxttapend', 'node.wf', changeInp);
     cy.on('cxttapend', 'edge.dependency', changeInp);
 }
@@ -247,18 +252,6 @@ function detectFormat(content) {
     }
 
     return FORMAT
-}
-
-
-function guid() {
-    /* Note: such values are not genuine GUIDs */
-    function s4() {
-      return Math.floor((1 + Math.random()) * 0x10000)
-        .toString(16)
-        .substring(1);
-    }
-    return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
-    s4() + '-' + s4() + s4() + s4();
 }
 
 

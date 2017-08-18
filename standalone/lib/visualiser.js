@@ -40,7 +40,6 @@ function conllu2cy(content) {
     $.each(sent.tokens, function(n, token) {
         if (token.tokens){
             var spId = "ns" + strWithZero(n);
-            console.log("spine: " + spId);
             graph.push({"data": {"id": spId, "form": token.form}});
             $.each(token.tokens, function(n, subTok) {
                 graph = createToken(graph, subTok, spId);
@@ -68,6 +67,7 @@ function createToken(graph, token, spId) {
     nodeWF.parent = spId;
     nodeWF.length = nodeWF.form.length + "em";
     nodeWF.id = "nf" + nodeId;
+    nodeWF.label = nodeWF.form;
     nodeWF.state = "normal";
     graph.push({"data": nodeWF, "classes": "wf"});
 
@@ -111,7 +111,7 @@ function makePOS(token, nodeId, graph) {
     // creating pos node
     var nodePOS = {
         "id": "np" + nodeId,
-        "pos": pos,
+        "label": pos,
         "length": (pos.length + 1) + "em"
     }
     graph.push({"data": nodePOS, "classes": "pos"});

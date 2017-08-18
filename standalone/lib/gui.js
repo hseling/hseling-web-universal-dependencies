@@ -45,7 +45,6 @@ function drawArcs(evt) {
     // if the user clicked an activated node
     if (this.hasClass("activated")) {
         this.removeClass("activated");
-        this.removeClass("retokenize");
     } else {
         // look for other activated nodes
         var actNode = cy.$(".activated");
@@ -66,19 +65,23 @@ function writeArc(sourceNode, destNode) {
     redrawing the tree. Currently supports only conllu.
     */
 
-    var sourceIndex = Number(sourceNode.data("id").slice(2)); // TODO: more beautiful way
-    var destIndex = Number(destNode.data("id").slice(2));
-
-    // if source index equals target index, abort rewriting
-    if (sourceIndex == destIndex) { return };
-
-    // convert data to conllu
-    toConllu();
-
-    // replace the old line of destNode with the one with HEAD
-    var sent = buildSent();
-    sent.tokens[destIndex - 1].head = Number(sourceIndex);
+    var sourceIndex = +sourceNode.data("id").slice(2);
+    var destIndex = +destNode.data("id").slice(2);
+    var sent = buildSent(); // add HEAD to destNode
+    var prevHead = sent.tokens[destIndex - 1].head;
+    sent.tokens[destIndex - 1].head = sourceIndex;
     redrawTree(sent);
+
+    window.undoManager.add({
+        undo: function(){
+            var sent = buildSent();
+            sent.tokens[destIndex - 1].head = prevHead;
+            redrawTree(sent);
+        },
+        redo: function(){
+            writeArc(sourceNode, destNode);
+        }
+    });
 }
 
 
@@ -91,18 +94,14 @@ function selectArc() {
     if (this.hasClass("selected")) {
         this.removeClass("selected");
 
-        // removing visual effects for destNode
+        // removing visual effects from destNode
         var destNodeId = this.data("target");
         cy.$("#" + destNodeId).removeClass("arc-selected");
 
     } else {
         this.addClass("selected");
-
-        // getting info about nodes
-        var destNodeId = this.data("target");
-
-        // visual effects for destNode
-        cy.$("#" + destNodeId).addClass("arc-selected");
+        var destNodeId = this.data("target"); // getting info about nodes
+        cy.$("#" + destNodeId).addClass("arc-selected"); // css for destNode
     }
 
     // for identifying the node
@@ -124,11 +123,11 @@ function keyUpClassifier(key) {
     // looking if there are selected arcs
     var selArcs = cy.$("edge.dependency.selected");
     // looking if there is a POS label to be modified
-    var posInp = $(".activated#pos");
+    var posInp = $(".activated.np");
     // looking if there is a wf label to be modified
-    var wfInp = $(".activated#wf");
+    var wfInp = $(".activated.nf");
     // looking if there is a deprel label to be modified
-    var deprelInp = $(".activated#deprel");
+    var deprelInp = $(".activated.ed");
     // looking if some wf node is selected
     var wf = cy.$("node.wf.activated");
     // looking if a supertoken node is selected
@@ -258,70 +257,41 @@ function removeSup(st) {
 }
 
 
-function changeInp() {
-
+function changeNode() {
     this.addClass("input");
-    var x = this.renderedPosition("x");
-    var y = this.relativePosition("y");
-    var width = this.renderedWidth();
-    var height = this.renderedHeight();
+    var id = this.id().slice(0, 2);
+    var param = this.renderedBoundingBox();
+    param.color = this.style("background-color");
+    if (id == "ed") {param = changeEdgeParam(param)};
 
-    var selector, color, label;
+    // for some reason, there are problems with label in deprels without this 
+    if (this.data("label") == undefined) {this.data("label", "")};
 
-    // defining which part of the tree needs to be changed
-    if (this.hasClass("pos")) {
-        selector = "#pos";
-        color = POS_COLOR;
-        label = "pos";
-    } else if (this.hasClass("wf")) {
-        selector = "#wf";
-        color = NORMAL;
-        label = "form";
-        y = this.renderedPosition("y");
-        console.log("y: " + y);
-        y = y*0.4;
-    } else if (this.hasClass("dependency")) {
-        selector = "#deprel";
-        color = "white";
-        label = "label";
-        var coord = findEdgesPos(this);
-        x = coord[0];
-        y = coord[1];
-        width = 100; // TODO: make a subtlier sizing
-        height = 40;
-    };
-
-
-    // TODO: font size
     $("#mute").addClass("activated");
-    $(selector).css("bottom", y - parseInt(height*0.55))
-        .css("left", x - parseInt(width/2)*1.1)
-        .css("height", height)
-        .css("width", width)
-        .css("background-color", color)
-        .attr("value", this.data(label))
-        .addClass("activated");
+    $("#edit").css("top", param.y1)
+        .css("left", param.x1)
+        .css("height", param.h)
+        .css("width", param.w)
+        .css("background-color", param.color)
+        .attr("value", this.data("label"))
+        .addClass("activated")
+        .addClass(id);
 
-    $(selector).focus();
+    $("#edit").focus();
 }
 
 
-function findEdgesPos(edge) {
-    var sourceNode = edge.data("source");
-    var sourceX = cy.$("#" + sourceNode).renderedPosition("x");
-    var sourceY = cy.$("#" + sourceNode).renderedPosition("y");
-    var destNode = edge.data("target");
-    var destX = cy.$("#" + destNode).renderedPosition("x");
-    var lift = Math.abs(edge.data("ctrl")[0]);
-    var dist = sourceX - destX;
-    var y = sourceY;
-    var x = sourceX - dist/2;
-    return [x, y];
+function changeEdgeParam(param) {
+    param.x1 = param.x1 + (param.x2 - param.x1)/2 - 50
+    param.w = 100; // TODO: make a subtlier sizing
+    param.h = 40;
+    param.color = "white";
+    return param;
 }
 
 
 function find2change() {
-    /* Selects a cy element which is to be changed, returns its index. */
+    /* Selects a cy element to be changed, returns its index. */
     var active = cy.$(".input");
     var Id = active.id().slice(2) - 1;
     return Id;
@@ -332,16 +302,26 @@ function writeDeprel(deprelInp) { // TODO: DRY
     /* Writes changes to deprel label. */
     var edgeId = find2change();
     var sent = buildSent();
+    var prevDeprel = sent.tokens[edgeId].deprel;
     sent.tokens[edgeId].deprel = deprelInp.val();
     redrawTree(sent);
+
+    window.undoManager.add({
+        undo: function(){
+            var sent = buildSent();
+            sent.tokens[edgeId].upostag = prevPOS;
+            redrawTree(sent);
+        },
+        redo: function(){
+            writePOS(posInp, nodeId);
+        }
+    });
 }
-
-
 
 
 function writePOS(posInp, nodeId) {
     /* Writes changes to POS label. */
-    var nodeId = nodeId ? nodeId : find2change();
+    var nodeId = (nodeId != undefined) ? nodeId : find2change();
     var sent = buildSent();
     var prevPOS = sent.tokens[nodeId].upostag;
     sent.tokens[nodeId].upostag = posInp; // TODO: think about xpostag changing support

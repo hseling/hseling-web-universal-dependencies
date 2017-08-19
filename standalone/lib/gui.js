@@ -215,28 +215,6 @@ function moveArc() {
 }
 
 
-function editDeprel() {
-    // building the CoNLL-U sent
-    var sent = buildSent();
-
-    // getting the deprel and the head
-    // var actNode = cy.$(".activated");
-
-    var destNode = cy.$(".arc-selected");
-    console.log(destNode);
-    var destIndex = destNode.id().slice(2);
-    var deprel = sent.tokens[destIndex].deprel;
-    console.log("deprel: " + deprel);
-
-    // getting the new deprel
-    var deprel = prompt("dependency relation:", deprel);
-    sent.tokens[destIndex].deprel = deprel;
-
-    // rewriting the tree
-    redrawTree(sent);   
-}
-
-
 function removeSup(st) {
     /* Support for removing supertokens. */
     var sent = buildSent();
@@ -459,4 +437,19 @@ function redrawTree(sent) {
     the function drawing the tree. */
     $("#indata").val(sent.serial);
     drawTree(); 
+}
+
+
+// refactoring the write functions
+function writeSent(makeChanges) {
+
+    // build sent
+    var sent = new conllu.Sentence();
+    sent.serial = $("#indata").val();
+
+    sent = makeChanges(sent, this);
+
+    // redraw tree
+    $("#indata").val(sent.serial);
+    drawTree();    
 }

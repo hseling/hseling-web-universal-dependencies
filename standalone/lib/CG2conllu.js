@@ -13,8 +13,10 @@ function CG2conllu(CGtext) {
     var sent = new conllu.Sentence();
     var separated = findComments(CGtext);
     sent.comments = separated[0];
-    var tokens = formTokens(separated[1]);
+    var tokens = formTokens2(CGtext);
     sent.tokens = tokens;
+    console.log("result: ");
+    console.log(sent.serial);
     return sent.serial;        
 }
 
@@ -43,7 +45,7 @@ function ambiguetyPresent(CGtext) {
     for (var i = 2; i < lines.length; i += 2) {
         var ana = lines[i].trim(); 
         if (ana.includes(indent) && !ana.includes(indent + indent)) {
-            console.log(lines[i]);
+            // console.log(lines[i]);
             return true;
         }
     }
@@ -51,54 +53,31 @@ function ambiguetyPresent(CGtext) {
 }
 
 
-function formTokens(lines) {
-    var tokens = [];
-    for (var i = 0; i < (lines.length); i += 2) {
-        if (lines[i].match(/"<.*>"/)) { // then everything is ok
-            var analyses = {};
-            analyses.id = i/2 + 1;
-            analyses.form = lines[i].replace(/"<(.*)>"/, '$1');
-
-            if (lines[i + 1] && !lines[i + 1].match(/"<.*>"/)) { // then everything is ok
-                analyses = getAnalyses(lines[i + 1], analyses); 
-            } else { // TODO: raise an exception
-                console.log("Something gone wrong on line: " + lines[i + 1]);
-            }
-            tokens.push(formNewToken(analyses));
-        } else { // TODO: raise an exception
-            console.log("Something gone wrong on line: " + lines[i]);
-        }
-    }
-    return tokens;
-}
-
-
-function formTokens1(lines) { 
+function formTokens2(CGtext) {
 
     // i use the presupposition that there are no ambiguous readings,
-    // because i've aboted conversion of ambiguous sentences in test4ambiguety 
+    // because i've aboted conversion of ambiguous sentences in ambiguetyPresent
     var tokens = [];
-    var i = 0;
-    while (i < (lines.length)) {
-        if (lines[i].match(/"<.*>"/)) { // token
-            var token = {};
-            token.id = i/2 + 1;
-            token.form = lines[i].replace(/"<(.*)>"/, '$1');
-            i ++;
-        } else if (i != 0) {
-            if (lines[i - 1].match(/"<.*>"/)){
-                token = getAnalyses(lines[i], token);
-                tokens.push(formNewToken(token));                
-            } else if (lines[i - 1].match(/"[^<>]*"/)) {
-                console.log("There should be a supertoken.")
+    var lines = CGtext.split(/"<(.*)>"/).slice(1);
+    var tokId = 1;
+    $.each(lines, function(n, line) {
+        if (n % 2 == 1) {
+            var form = lines[n -1];
+            line = line.replace(/^\n?;?( +|\t)/, "");
+            if (!line.match(/(  |\t)/)) {
+                var token = getAnalyses(line, {"form": form, "id": tokId});
+                tokens.push(formNewToken(token));
+                tokId ++;
             } else {
-                console.log("Something gone wrong on line: " + lines[i]);
+                var subtokens = line.trim().split("\n");
+                console.log("sup: " + subtokens);
+                console.log(subtokens.length);
+                var supertoken = formSupertoken(subtokens, form, tokId);
+                tokens.push(supertoken);
+                tokId += subtokens.length;
             }
-            i ++;
-        } else {
-            console.log("Something gone wrong on line: " + lines[i]);
         }
-    }
+    })
     return tokens;
 }
 
@@ -110,12 +89,12 @@ function getAnalyses(line, analyses) {
     var forSubst = quoted.replace(/ /g, "·");
     var gram = line.replace(/".*"/, forSubst);
 
-    gram = gram.replace(/;? +/, "").split(" "); // then split on space and iterate
+    gram = gram.replace(/[\n\t]+/, "").split(" "); // then split on space and iterate
     $.each(gram, function(n, ana) { 
         if (ana.match(/"[^<>]*"/)) {
             analyses.lemma = ana.replace(/"([^<>]*)"/, '$1');
         } else if (ana.match(/#[0-9]+->[0-9]+/)) {
-            analyses.head = ana.replace(/#([0-9]+)->([0-9]+)/, '$2');
+            analyses.head = ana.replace(/#([0-9]+)->([0-9]+)/, '$2').trim();
         } else if (ana.match(/@[a-z:]+/)) {
             analyses.deprel = ana.replace(/@([a-z:]+)/, '$1');
         } else if (n < 2) {
@@ -129,7 +108,6 @@ function getAnalyses(line, analyses) {
             }
         }
     })
-
     return analyses;
 }
 
@@ -143,4 +121,17 @@ function formNewToken(attrs) {
         newToken[attr] = val;
     });
     return newToken;
+}
+
+
+function formSupertoken(subtokens, form, tokId) {
+    var sup = new conllu.MultiwordToken();
+    sup.form = form;
+
+    $.each(subtokens, function(n, tok) {
+        var newTok = getAnalyses(tok, {"id": tokId});
+        sup.tokens.push(formNewToken(newTok));
+        tokId ++;
+    })
+    return sup;
 }

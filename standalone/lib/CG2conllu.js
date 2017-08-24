@@ -15,8 +15,6 @@ function CG2conllu(CGtext) {
     sent.comments = separated[0];
     var tokens = formTokens2(CGtext);
     sent.tokens = tokens;
-    console.log("result: ");
-    console.log(sent.serial);
     return sent.serial;        
 }
 
@@ -70,8 +68,6 @@ function formTokens2(CGtext) {
                 tokId ++;
             } else {
                 var subtokens = line.trim().split("\n");
-                console.log("sup: " + subtokens);
-                console.log(subtokens.length);
                 var supertoken = formSupertoken(subtokens, form, tokId);
                 tokens.push(supertoken);
                 tokId += subtokens.length;
@@ -134,4 +130,41 @@ function formSupertoken(subtokens, form, tokId) {
         tokId ++;
     })
     return sup;
+}
+
+
+function conllu2CG(conlluText, indent) {
+    var sent = new conllu.Sentence();
+    sent.serial = conlluText;
+    if (indent == undefined) {
+        var indent = "\t";
+    }
+
+    var CGtext = (sent.comments.length) ? "#" + sent.comments.join("\n#") : "";
+
+    $.each(sent.tokens, function(i, tok) {
+
+        var form = (tok.form) ? ('\n"<' + tok.form + '>"\n') : '';
+        CGtext += form;
+        if (tok.tokens == undefined) {
+            CGtext += indent + newCgAna(i, tok);
+        } else {
+            $.each(tok.tokens, function(j, subtok) {
+                CGtext += "\n" + indent.repeat(j + 1) + newCgAna(j, subtok);
+            })
+        }
+    })
+
+    return CGtext.trim();
+}
+
+
+function newCgAna(i, tok) {
+    var lemma = (tok.lemma) ? ('"' + tok.lemma + '"') : '';
+    var pos = (tok.upostag) ? " " + tok.upostag : tok.xpostag;
+    var feats = (tok.feats) ? " " + tok.feats : '';
+    var deprel = (tok.deprel) ? " @" + tok.deprel : " @x"; // is it really what we want by default?
+    var edge = (tok.head) ? " #" + (i + 1) + "->" + tok.head : ''; 
+    var cgToken = lemma + pos + feats + deprel + edge;
+    return cgToken;
 }

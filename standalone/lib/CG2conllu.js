@@ -13,7 +13,7 @@ function CG2conllu(CGtext) {
     var sent = new conllu.Sentence();
     var separated = findComments(CGtext);
     sent.comments = separated[0];
-    var tokens = formTokens2(CGtext);
+    var tokens = formTokens(CGtext);
     sent.tokens = tokens;
     return sent.serial;        
 }
@@ -51,7 +51,7 @@ function ambiguetyPresent(CGtext) {
 }
 
 
-function formTokens2(CGtext) {
+function formTokens(CGtext) {
 
     // i use the presupposition that there are no ambiguous readings,
     // because i've aboted conversion of ambiguous sentences in ambiguetyPresent
@@ -60,7 +60,7 @@ function formTokens2(CGtext) {
     var tokId = 1;
     $.each(lines, function(n, line) {
         if (n % 2 == 1) {
-            var form = lines[n -1];
+            var form = lines[n - 1];
             line = line.replace(/^\n?;?( +|\t)/, "");
             if (!line.match(/(  |\t)/)) {
                 var token = getAnalyses(line, {"form": form, "id": tokId});
@@ -85,7 +85,7 @@ function getAnalyses(line, analyses) {
     var forSubst = quoted.replace(/ /g, "·");
     var gram = line.replace(/".*"/, forSubst);
 
-    gram = gram.replace(/[\n\t]+/, "").split(" "); // then split on space and iterate
+    gram = gram.replace(/[\n\t]+/, "").trim().split(" "); // then split on space and iterate
     $.each(gram, function(n, ana) { 
         if (ana.match(/"[^<>]*"/)) {
             analyses.lemma = ana.replace(/"([^<>]*)"/, '$1');
@@ -125,7 +125,7 @@ function formSupertoken(subtokens, form, tokId) {
     sup.form = form;
 
     $.each(subtokens, function(n, tok) {
-        var newTok = getAnalyses(tok, {"id": tokId});
+        var newTok = getAnalyses(tok, {"id": tokId, "form": "_"});
         sup.tokens.push(formNewToken(newTok));
         tokId ++;
     })

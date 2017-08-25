@@ -58,16 +58,20 @@ span.tt {
    cursor: default;
 }
 
-#help {
+/*#help {
   position: relative;
-  left: 1500px;
-}
+  left: 100px;
+}*/
 
 #cy {
   position: relative;
   width: 1500px;
   height: 300px;
   display: block;
+}
+
+#save {
+  display: none;
 }
 
 .hidden-input {

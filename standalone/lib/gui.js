@@ -416,7 +416,19 @@ function mergeNodes(toMerge, side, how) {
 function buildSent() {
     /* Reads data from the textbox, returns a sent object. */
     var sent = new conllu.Sentence();
-    sent.serial = $("#indata").val();
+    var currentSent = $("#indata").val();
+    var currentFormat = detectFormat(currentSent);
+    if (currentFormat == "CG3") {
+        currentSent = CG2conllu(currentSent);
+        if (currentSent == undefined) {
+            cantConvertCG();
+            drawTree(); // not sure if this line is ok
+            return;
+        } else {
+            console.log("buildSent: conversion gone right!");
+        }
+    }
+    sent.serial = currentSent;
     return sent;
 }
 
@@ -424,7 +436,16 @@ function buildSent() {
 function redrawTree(sent) {
     /* Takes a Sentence object. Writes it to the textbox and calls
     the function drawing the tree. */
-    $("#indata").val(sent.serial);
+    var changedSent = sent.serial;
+
+    // the following block is needed for detection of which format was used
+    var currentSent = $("#indata").val();
+    var currentFormat = detectFormat(currentSent);
+    if (currentFormat == "CG3") {
+        changedSent = conllu2CG(changedSent);
+    }
+
+    $("#indata").val(changedSent);
     drawTree(); 
 }
 
@@ -441,4 +462,68 @@ function writeSent(makeChanges) {
     // redraw tree
     $("#indata").val(sent.serial);
     drawTree();    
+}
+
+
+function viewAsPlain() { // TODO: DRY?
+    var text = $("#indata").val();
+    var currentFormat = detectFormat(text);
+
+    console.log("viewAsPlain called");
+    console.log("FORMAT: " + FORMAT);
+    console.log("currentFormat: " + currentFormat);
+    if (currentFormat == "CoNLL-U") {
+        text = conllu2plainSent(text);
+    } else if (currentFormat == "CG3") {
+        text = CG2conllu(text);
+        if (text == undefined) {
+            cantConvertCG(); // show the error message
+            return;
+        } else {
+            text = conllu2plainSent(text);
+        }
+    }
+    $("#indata").val(text);
+}
+
+
+function viewAsConllu() {
+    var text = $("#indata").val();
+    var currentFormat = detectFormat(text);
+
+    console.log("viewAsConllu called");
+    console.log("FORMAT: " + FORMAT);
+    console.log("currentFormat: " + currentFormat);
+    if (FORMAT == "plain text") {
+        loadDataInIndex(); // TODO: this will certainly cause unexpected behavior. refactor when you have time.
+    } else if (currentFormat == "CG3") {
+        text = CG2conllu(text);
+        if (text == undefined) {
+            cantConvertCG();
+            return;
+        }
+        $("#indata").val(text);
+    }
+}
+
+
+function viewAsCG() {
+    var text = $("#indata").val();
+    var currentFormat = detectFormat(text);
+
+    console.log("viewAsCG called");
+    console.log("FORMAT: " + FORMAT);
+    console.log("currentFormat: " + currentFormat);
+    var text = $("#indata").val();
+    if (currentFormat == "CoNLL-U") {
+        text = conllu2CG(text);
+    }
+    $("#indata").val(text);
+}
+
+
+function cantConvertCG() {
+    document.getElementById("viewConllu").disabled = true;
+    $("#warning").css("background-color", "pink")
+        .text("Warning: CG containing ambiguous analyses can't be converted into CoNLL-U!");
 }

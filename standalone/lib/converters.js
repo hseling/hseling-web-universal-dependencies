@@ -4,11 +4,19 @@ function toConllu() {
     if (FORMAT == "plain text") {
         plainText2Conllu();
     } else if (FORMAT == "CG3") {
-        var text = $("#indata").val(); // TODO: refactor
-        $("#indata").val(CG2conllu(text));
+        // var text = $("#indata").val(); // TODO: refactor
+        // $("#indata").val(CG2conllu(text));
+
+        var newContents = getTreebank();
+        // CONTENTS = CG2conllu() // iterate!
     }
     FORMAT = "CoNLL-U";
     drawTree();
+}
+
+
+function toCG() {
+    alert("Doesn't work correctly yet.");
 }
 
 
@@ -68,34 +76,4 @@ function conllu2plainSent(text) {
     })
     var plain = tokens.join(" ");
     return plain;
-}
-
-
-function viewAsPlain() {
-    if (FORMAT == "CoNLL-U") {
-        var text = $("#indata").val();
-        $("#indata").val(conllu2plainSent(text));
-    }
-}
-
-
-function viewAsConllu() {
-    if (FORMAT == "plain text") {
-        loadDataInIndex();
-    } else if (FORMAT = "CG3") {
-        var text = $("#indata").val();
-        $("#indata").val(CG2conllu(text));
-    }
-}
-
-
-function viewAsCG() {
-    // if (FORMAT)
-    // DESIGN THE ARCITECTURE
-
-    // this is temporal!
-    if (FORMAT == "CoNLL-U") {
-        var text = $("#indata").val();
-        $("#indata").val(conllu2CG(text));
-    }
 }

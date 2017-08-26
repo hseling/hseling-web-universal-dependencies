@@ -24,13 +24,14 @@
         <p>
             <input type="button" id="viewConllu" onClick="javascript:viewAsConllu();" value="View sentence as CoNLL-U" />
             <input type="button" id="viewCG" onClick="javascript:viewAsCG();" value="View sentence as CG" />
-            <input type="button" id="viewPlain" onClick="javascript:viewAsPlain();" value="View sentence as plain text" />
+            <input disabled="true" type="button" id="viewPlain" onClick="javascript:viewAsPlain();" value="View sentence as plain text" />
         </p>
         <textarea id="indata" style="width: 100%" rows="20"></textarea>
 
         <p>
             <input type="button" onClick="javascript:exportCorpora();" value="Export Corpus" />
             <input type="button" id="convert" onClick="javascript:toConllu();" value="Convert the corpus to CoNLL-U" />
+            <input type="button" id="convert" onClick="javascript:toCG();" value="Convert the corpus to CG3" />
             <div id="warning"></div>
         </p>
 

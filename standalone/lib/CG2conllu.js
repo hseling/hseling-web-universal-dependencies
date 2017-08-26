@@ -4,15 +4,12 @@ function CG2conllu(CGtext) {
     /* Takes a string in CG, returns a string in conllu. */
 
     if (ambiguetyPresent(CGtext)) { // to abort conversion if there are ambiguous analyses
-        document.getElementById("convert").disabled = true;
-        $("#warning").css("background-color", "pink")
-            .text("Warning: CG containing ambiguous analyses can't be converted into CoNLL-U!");
         return;
     }
 
     var sent = new conllu.Sentence();
-    var separated = findComments(CGtext);
-    sent.comments = separated[0];
+    var comments = findComments(CGtext);
+    sent.comments = comments;
     var tokens = formTokens(CGtext);
     sent.tokens = tokens;
     return sent.serial;        
@@ -23,15 +20,13 @@ function findComments(CGtext) {
     /* Takes a string in CG, returns 2 arrays with strings. */
     var lines = CGtext.split("\n");
     var comments = [];
-    var tokens = [];
     $.each(lines, function(n, line) {
         if (line[0] == "#") {
+            line = line.replace(/^#+/, "");
             comments.push(line);
-        } else {
-            tokens.push(line);
         }
     });
-    return [comments, tokens];
+    return comments;
 }
 
 

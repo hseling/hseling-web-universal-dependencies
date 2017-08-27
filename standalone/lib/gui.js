@@ -655,3 +655,14 @@ function switchRtlMode() {
         drawTree();
     }
 }
+
+
+function switchAlignment(argument) {
+    if (this.checked) {
+        VERT_ALIGNMENT = true;
+        drawTree();
+    } else {
+        VERT_ALIGNMENT = false;
+        drawTree();
+    }
+}

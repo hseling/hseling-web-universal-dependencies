@@ -1,6 +1,6 @@
 "use strict"
 
-var ALIGNMENT = "h";
+var VERT_ALIGNMENT = false;
 var LEFT_TO_RIGHT = true;
 var ACTIVE = "#2653c9";
 var NORMAL = "#7fa2ff";
@@ -15,24 +15,30 @@ var conllu = require("conllu");
 
 function conlluDraw(content) {
     /* Draw the tree. */
-    var sortingFunc = (LEFT_TO_RIGHT) ? simpleIdSorting : rtlSorting;
+
+    // var sortingFunc = (LEFT_TO_RIGHT) ? simpleIdSorting : rtlSorting;
+    var layout = {name: "grid", condense: true};
+    if (VERT_ALIGNMENT) {
+        layout.cols = 2;
+        layout.sort = vertAlSort;
+        $("#cy").css("height", "1000px");
+    } else {
+        layout.rows = 2;
+        if (LEFT_TO_RIGHT) {
+            layout.sort = simpleIdSorting;
+        } else {
+            layout.sort = rtlSorting;
+        }
+    }
+
     var cy = window.cy = cytoscape({
-        container: document.getElementById('cy'),
+        container: document.getElementById("cy"),
 
         boxSelectionEnabled: false,
         autounselectify: true,
         autoungrabify: true,
         userZoomingEnabled: false,
-
-
-        layout: {
-            name: 'grid',
-            condense: true,
-            // cols: sent.tokens.length,
-            rows: 2,
-            sort: sortingFunc
-        },
-
+        layout: layout, 
         style: CY_STYLE,
         elements: conllu2cy(content)
     });
@@ -168,18 +174,35 @@ function simpleIdSorting(n1, n2) {
 
 
 function rtlSorting(n1, n2) {
-    var result = 0;
-    if ((n1.hasClass("wf") && n2.hasClass("wf")) // = if the nodes have the same class
+    if ((n1.hasClass("wf") && n2.hasClass("wf")) // if the nodes have the same class
         || (n1.hasClass("pos") && n2.hasClass("pos"))) {
-        result = simpleIdSorting(n1, n2) * -1;
+        return simpleIdSorting(n1, n2) * -1;
     } else if (n1.hasClass("wf") && n2.hasClass("pos")) {
-        result = -1
+        return -1;
     } else if (n1.hasClass("pos") && n2.hasClass("wf")) {
-        result = 1
+        return 1;
     } else {
-        result = 0;
+        return 0;
     }
-    return result;
+}
+
+
+function vertAlSort(n1, n2) {
+    var num1 = +n1.id().slice(2);
+    var num2 = +n2.id().slice(2);
+    if (num1 < num2) {
+        return -1;
+    } else if (num1 > num2) {
+        return 1;
+    } else {
+        if (n1.hasClass("wf") && n2.hasClass("pos")) {
+            return 1;
+        } else if (n1.hasClass("pos") && n2.hasClass("wf")) {
+            return -1
+        } else {
+            return 0;
+        }
+    }
 }
 
 

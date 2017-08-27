@@ -1,22 +1,19 @@
 function toConllu() {
     /* Converts the input to CoNLL-U and redraws the tree */
 
+    var newContents = getTreebank();
     if (FORMAT == "plain text") {
-        plainText2Conllu();
-    } else if (FORMAT == "CG3") {
-        // var text = $("#indata").val(); // TODO: refactor
-        // $("#indata").val(CG2conllu(text));
-
-        var newContents = getTreebank();
-        // CONTENTS = CG2conllu() // iterate!
+        plainText2Conllu(newContents);
+    } else {
+        for (var i = 0; i < RESULTS.length; ++i) {
+            var currentFormat = detectFormat(RESULTS[i]);
+            if (currentFormat = "CG3") {
+                RESULTS[i] = CG2conllu(RESULTS[i]);
+            }
+        }
+        showDataIndiv();
     }
     FORMAT = "CoNLL-U";
-    drawTree();
-}
-
-
-function toCG() {
-    alert("Doesn't work correctly yet.");
 }
 
 
@@ -42,11 +39,10 @@ function plainSent2Conllu(text) {
 }
 
 
-function plainText2Conllu() {
+function plainText2Conllu(text) {
     /* Takes plain text, converts it to CoNLL-U format. */
 
     // if text consists of several sentences, prices it as imported file
-    var text = $("#indata").val();
     if (text.match(/[^ ].+?[.!?](?=( |\n)[^ \n])/)) {
         CONTENTS = text;
     }

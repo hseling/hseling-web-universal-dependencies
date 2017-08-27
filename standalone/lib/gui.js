@@ -62,27 +62,73 @@ function drawArcs(evt) {
 
 function writeArc(sourceNode, destNode) {
     /*
-    Called in arcDest. Makes changes to the text data and calls the function
+    Called in drawArcs. Makes changes to the text data and calls the function
     redrawing the tree. Currently supports only conllu.
     */
 
     var sourceIndex = +sourceNode.data("id").slice(2);
     var destIndex = +destNode.data("id").slice(2);
-    var sent = buildSent(); // add HEAD to destNode
-    var prevHead = sent.tokens[destIndex - 1].head;
-    sent.tokens[destIndex - 1].head = sourceIndex;
-    redrawTree(sent);
+
+    var indices = findConlluId(destNode);
+    var sent = buildSent();
+
+    var sentAndPrev = changeConlluAttr(sent, indices, "head", sourceIndex);
+    sent = sentAndPrev[0];
+    var pervVal = sentAndPrev[1];
 
     window.undoManager.add({
         undo: function(){
             var sent = buildSent();
-            sent.tokens[destIndex - 1].head = prevHead;
+            var sentAndPrev = changeConlluAttr(sent, indices, "head", pervVal);
+            sent = sentAndPrev[0];
             redrawTree(sent);
         },
         redo: function(){
             writeArc(sourceNode, destNode);
         }
     });
+
+    redrawTree(sent);
+}
+
+
+function removeArc(destNodes) {
+    /* Removes all the selected edges. */
+
+    var sent = buildSent();
+    var prevRelations = {}
+
+    // support for multiple arcs
+    $.each(destNodes, function(i, node) {
+        var destIndex = node.id().slice(2);
+        var indices = findConlluId(node);
+        var sentAndPrev = changeConlluAttr(sent, indices, "head", undefined);
+        sent = sentAndPrev[0];
+        prevRelations["head"] = sentAndPrev[1];
+        var sentAndPrev = changeConlluAttr(sent, indices, "deprel", undefined);
+        sent = sentAndPrev[0];
+        prevRelations["deprel"] = sentAndPrev[1];
+    });
+
+    window.undoManager.add({
+        undo: function(){
+            var sent = buildSent();
+            $.each(destNodes, function(i, node) {
+                var destIndex = node.id().slice(2);
+                var indices = findConlluId(node);
+                var sentAndPrev = changeConlluAttr(sent, indices, "head", prevRelations.head);
+                sent = sentAndPrev[0];
+                var sentAndPrev = changeConlluAttr(sent, indices, "deprel", prevRelations.deprel);
+                sent = sentAndPrev[0];
+            })
+            redrawTree(sent);
+        },
+        redo: function(){
+            removeArc(destNodes);
+        }
+    });
+
+    redrawTree(sent);
 }
 
 
@@ -123,6 +169,7 @@ function keyUpClassifier(key) {
 
     // looking if there are selected arcs
     var selArcs = cy.$("edge.dependency.selected");
+    var destNodes = cy.$("node[state='arc-dest']");
     // looking if there is a POS label to be modified
     var posInp = $(".activated.np");
     // looking if there is a wf label to be modified
@@ -141,7 +188,7 @@ function keyUpClassifier(key) {
 
     if (selArcs.length) {
         if (key.which == DEL_KEY) {
-            removeArc();
+            removeArc(destNodes);
         } else if (key.which == BACKSPACE) {
             drawTree();
         } else if (key.which == D) {
@@ -157,7 +204,7 @@ function keyUpClassifier(key) {
         };
     } else if (deprelInp.length) {
         if (key.which == ENTER) {
-            writeDeprel(deprelInp);
+            writeDeprel(deprelInp.val());
         };
     } else if (wf.length == 1) {
         if (key.which == M) {
@@ -182,25 +229,6 @@ function keyUpClassifier(key) {
     }
     // console.log(key.which);
 
-}
-
-
-function removeArc(argument) {
-    /* Removes all the selected edges. */
-
-    var destNodes = cy.$("node[state='arc-dest']");
-    var sent = buildSent();
-
-    // support for multiple arcs
-    $.each(destNodes, function(i, node) {
-        var destIndex = node.id().slice(2);
-
-        // remove the head and the deprel from destNode
-        sent.tokens[destIndex - 1].head = undefined;
-        sent.tokens[destIndex - 1].deprel = undefined;
-    })
-
-    redrawTree(sent);
 }
 
 
@@ -277,73 +305,173 @@ function find2change() {
 }
 
 
-function writeDeprel(deprelInp) { // TODO: DRY
+
+function writeDeprel(deprelInp, indices) { // TODO: DRY
     /* Writes changes to deprel label. */
-    var edgeId = find2change();
-    console.log(edgeId);
+
+    // getting indices
+    if (indices == undefined) {
+        var active = cy.$(".input");
+        var Id = active.id().slice(2);
+        var wfNode = cy.$("#nf" + Id);
+        var indices = findConlluId(wfNode);
+    }
+
     var sent = buildSent();
-    var prevDeprel = sent.tokens[edgeId].deprel;
-    sent.tokens[edgeId].deprel = deprelInp.val();
-    redrawTree(sent);
+    var sentAndPrev = changeConlluAttr(sent, indices, "deprel", deprelInp);
+    sent = sentAndPrev[0];
+    var pervVal = sentAndPrev[1];
 
     window.undoManager.add({
         undo: function(){
             var sent = buildSent();
-            sent.tokens[edgeId].upostag = prevPOS;
+            var sentAndPrev = changeConlluAttr(sent, indices, "deprel", pervVal);
+            sent = sentAndPrev[0];
             redrawTree(sent);
         },
         redo: function(){
-            writePOS(posInp, nodeId);
+            writeDeprel(deprelInp, indices);
         }
     });
+
+    redrawTree(sent);
 }
 
 
-function writePOS(posInp, nodeId) {
+function writePOS(posInp, indices) {
     /* Writes changes to POS label. */
-    var nodeId = (nodeId != undefined) ? nodeId : find2change();
+
+    // getting indices
+    if (indices == undefined) {
+        var active = cy.$(".input");
+        var Id = active.id().slice(2);
+        var wfNode = cy.$("#nf" + Id);
+        var indices = findConlluId(wfNode);
+    }
+
     var sent = buildSent();
-    var prevPOS = sent.tokens[nodeId].upostag;
-    sent.tokens[nodeId].upostag = posInp; // TODO: think about xpostag changing support
-    redrawTree(sent);
+    var sentAndPrev = changeConlluAttr(sent, indices, "upostag", posInp);
+    sent = sentAndPrev[0];
+    var pervVal = sentAndPrev[1];
 
     window.undoManager.add({
         undo: function(){
             var sent = buildSent();
-            sent.tokens[nodeId].upostag = prevPOS;
+            var sentAndPrev = changeConlluAttr(sent, indices, "upostag", pervVal);
+            sent = sentAndPrev[0];
             redrawTree(sent);
         },
         redo: function(){
-            writePOS(posInp, nodeId);
+            writePOS(posInp, indices);
         }
     });
+
+    redrawTree(sent);
+
+}
+
+
+function changeConlluAttr(sent, indices, attrName, newVal) {
+    var isSubtoken = indices[0];
+    var outerIndex = indices[1];
+    var innerIndex = indices[2];
+    if (isSubtoken) {
+        var pervVal = sent.tokens[outerIndex].tokens[innerIndex][attrName];
+        sent.tokens[outerIndex].tokens[innerIndex][attrName] = newVal;
+    } else {
+        var pervVal = sent.tokens[outerIndex][attrName];
+        sent.tokens[outerIndex][attrName] = newVal;
+    }
+    return [sent, pervVal]
 }
 
 
 function writeWF(wfInp) {
     /* Either writes changes to token or retokenises the sentence. */
-    var nodeId = find2change();
     var newToken = wfInp.val();
 
-    if (newToken.includes(" ")) {
-        splitTokens(newToken, nodeId);
-    } else {
+    //now
+    var active = cy.$(".input");
+    var indices = findConlluId(active);
+    console.log(indices);
+    var isSubtoken = indices[0];
+    var outerIndex = indices[1];
+    var innerIndex = indices[2];
 
-        // TODO: this almost copies writePOS. DRY.
-        var sent = buildSent();
-        sent.tokens[nodeId].form = wfInp.val();
+    var sent = buildSent();
+    // var nodeId = find2change();
+
+
+    if (newToken.includes(" ")) { // this was a temporal solution. refactor.
+        if (!thereIsSupertoken(sent)) {
+            splitTokens(newToken, outerIndex, sent);
+        } else {
+            alert("Sorry, this option is not supported yet!");
+            drawTree();
+        }
+    } else {
+        if (isSubtoken) {
+            // TODO: think, whether it should be lemma or form.
+            // NB: if form, then you have to edit drawTree
+            sent.tokens[outerIndex].tokens[innerIndex].lemma = wfInp.val();
+        } else {
+            sent.tokens[outerIndex].form = wfInp.val();
+        }
         redrawTree(sent);
     }
 }
 
 
-function splitTokens(oldToken, nodeId) {
+function findConlluId(wfNode) { // TODO: refactor the arcitecture.
+    // takes a cy wf node
+
+    var isSubtoken = false;
+    var outerIndex;
+    var innerIndex;
+    if (wfNode.data("parent") != undefined) {
+        isSubtoken = true;
+        var parentId = wfNode.data("parent");
+        console.log("parentId: " + parentId);
+        var children = cy.$("#" + parentId).children();
+        outerIndex = +parentId.slice(2);
+        for (var i = 0; i < children.length; ++i) {
+            if (children[i].id() == wfNode.id()){
+                innerIndex = i;
+                console.log("Matched child: " + innerIndex);
+                console.log(children[i]);
+            }
+        }
+    } else {
+        var tokNumber = +wfNode.id().slice(2);
+        var sent = buildSent();
+        for (var i = 0; i < sent.tokens.length; ++i) {
+            if (sent.tokens[i].id == tokNumber) {
+                outerIndex = i;
+            }
+        }
+    }
+    return [isSubtoken, outerIndex, innerIndex];
+}
+
+
+function thereIsSupertoken(sent) { // quick fix. refactor the arcitecture later.
+    var supTokFound = false;
+    $.each(sent.tokens, function(n, tok) {
+        if (tok instanceof conllu.MultiwordToken) {
+            supTokFound = true;
+        } 
+    })
+    return supTokFound;
+}
+
+
+function splitTokens(oldToken, nodeId, sent) {
     /* Takes a token to retokenize with space in it and the Id of the token.
     Creates the new tokens, makes indices and head shifting, redraws the tree.
     All the attributes default to belong to the first part. */
 
     var newTokens = oldToken.split(" ");
-    var sent = buildSent();
+    // var sent = buildSent();
 
     // changing the first part
     sent.tokens[nodeId].form = newTokens[0];
@@ -361,7 +489,7 @@ function splitTokens(oldToken, nodeId) {
         };
     });
 
-    redrawTree(sent);
+    redrawTree(sent);        
 }
 
 
@@ -424,8 +552,6 @@ function buildSent() {
             cantConvertCG();
             drawTree(); // not sure if this line is ok
             return;
-        } else {
-            console.log("buildSent: conversion gone right!");
         }
     }
     sent.serial = currentSent;
@@ -450,7 +576,7 @@ function redrawTree(sent) {
 }
 
 
-// refactoring the write functions
+// refactoring the write functions. in project, doesn't work yet
 function writeSent(makeChanges) {
 
     // build sent
@@ -469,9 +595,6 @@ function viewAsPlain() { // TODO: DRY?
     var text = $("#indata").val();
     var currentFormat = detectFormat(text);
 
-    console.log("viewAsPlain called");
-    console.log("FORMAT: " + FORMAT);
-    console.log("currentFormat: " + currentFormat);
     if (currentFormat == "CoNLL-U") {
         text = conllu2plainSent(text);
     } else if (currentFormat == "CG3") {
@@ -491,9 +614,6 @@ function viewAsConllu() {
     var text = $("#indata").val();
     var currentFormat = detectFormat(text);
 
-    console.log("viewAsConllu called");
-    console.log("FORMAT: " + FORMAT);
-    console.log("currentFormat: " + currentFormat);
     if (FORMAT == "plain text") {
         loadDataInIndex(); // TODO: this will certainly cause unexpected behavior. refactor when you have time.
     } else if (currentFormat == "CG3") {
@@ -511,9 +631,6 @@ function viewAsCG() {
     var text = $("#indata").val();
     var currentFormat = detectFormat(text);
 
-    console.log("viewAsCG called");
-    console.log("FORMAT: " + FORMAT);
-    console.log("currentFormat: " + currentFormat);
     var text = $("#indata").val();
     if (currentFormat == "CoNLL-U") {
         text = conllu2CG(text);

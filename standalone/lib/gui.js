@@ -402,7 +402,7 @@ function writeWF(wfInp) {
     // var nodeId = find2change();
 
 
-    if (newToken.includes(" ")) { // this was a temporal solution. refactor.
+    if (newToken.trim().includes(" ")) { // this was a temporal solution. refactor.
         if (!thereIsSupertoken(sent)) {
             splitTokens(newToken, outerIndex, sent);
         } else {
@@ -643,4 +643,15 @@ function cantConvertCG() {
     document.getElementById("viewConllu").disabled = true;
     $("#warning").css("background-color", "pink")
         .text("Warning: CG containing ambiguous analyses can't be converted into CoNLL-U!");
+}
+
+
+function switchRtlMode() {
+    if (this.checked) {
+        LEFT_TO_RIGHT = false;
+        drawTree();
+    } else {
+        LEFT_TO_RIGHT = true;
+        drawTree();
+    }
 }

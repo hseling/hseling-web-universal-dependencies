@@ -43,7 +43,7 @@ function changeBoxSize(sent) {
         $("#cy").css("width", "1700px");       
         $("#cy").css("height", (length * 50) + "px");
     } else {
-        var width = length * 150;
+        var width = length * 200;
         if (width < minWidth) {
             width = minWidth;
         } else if (width > maxWidth) {
@@ -78,6 +78,7 @@ function changeEdgeStyle() {
         depEdgeStyle["text-margin-y"] = 0;
         depEdgeStyle["text-background-opacity"] = 1;
         depEdgeStyle["text-background-color"] = "white";
+        depEdgeStyle["text-background-shape"] = "roundrectangle";
         depEdgeStyle["text-border-color"] = "black";
         depEdgeStyle["text-border-width"] = 1;
         depEdgeStyle["text-border-opacity"] = 1;
@@ -153,19 +154,20 @@ function createToken(graph, token, spId) {
 function makeDependencies(token, nodeId, graph) {
     /* if there is head, create an edge for dependency */
 
+    var deprel = (token.deprel) ? token.deprel : "";
     if (token.head && token.head != 0) {
         var head = strWithZero(token.head);
         var edgeDep = {
             "id": "ed" + nodeId,
             "source": "nf" + head,
             "target": "nf" + nodeId,
-            "length": (token.deprel.length / 3) + "em",
-            "label": token.deprel,
+            "length": (deprel.length / 3) + "em",
+            "label": deprel,
             "ctrl": [55, 55, 55, 55]
         }
         var coef = (token.head - nodeId);
         if (!LEFT_TO_RIGHT) {coef *= -1}; // support for RTL
-        if (VERT_ALIGNMENT) {edgeDep.ctrl = [70, 70, 70, 70]};
+        if (VERT_ALIGNMENT) {edgeDep.ctrl = [90, 90, 90, 90]};
         if (Math.abs(coef) != 1) {coef *= 0.7};
         edgeDep.ctrl = edgeDep.ctrl.map(function(el){ return el*coef; });
         graph.push({"data": edgeDep, "classes": "dependency"});

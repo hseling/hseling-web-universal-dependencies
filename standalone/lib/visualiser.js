@@ -84,22 +84,30 @@ function changeEdgeStyle() {
         depEdgeStyle["text-border-opacity"] = 1;
         depEdgeStyle["control-point-weights"] = "0.15 0.45 0.55 0.85";
         depEdgeStyle["text-margin-x"] = "data(length)";
+        depEdgeStyle["source-distance-from-node"] = 10;
+        depEdgeStyle["target-distance-from-node"] = 10;
     } else {
         depEdgeStyle["text-margin-y"] = -10;
         depEdgeStyle["text-margin-x"] = 0;
         depEdgeStyle["text-background-opacity"] = 0;
         depEdgeStyle["text-border-opacity"] = 0;
         depEdgeStyle["control-point-weights"] = "0 0.25 0.75 1";
+        depEdgeStyle["source-distance-from-node"] = 0;
+        depEdgeStyle["target-distance-from-node"] = 0;
     }
 }
 
 function conllu2cy(sent) {
     var graph = [];
     $.each(sent.tokens, function(n, token) {
-        if (token.tokens){
+        if (token instanceof conllu.MultiwordToken){
             var spId = "ns" + strWithZero(n);
             var id = toSubscript(" (" + findSupTokId(token.tokens) + ")");
-            graph.push({"data": {"id": spId,"label": token.form + id}});
+            var MultiwordToken = {
+                "data": {"id": spId,"label": token.form + id},
+                "classes": "MultiwordToken"
+            };
+            graph.push(MultiwordToken);
             $.each(token.tokens, function(n, subTok) {
                 graph = createToken(graph, subTok, spId);
             });
@@ -136,13 +144,24 @@ function createToken(graph, token, spId) {
     if (token.form == undefined) {token.form = " "};
 
     var nodeId = strWithZero(token.id);
-    var nodeWF = token;
+    // token number
+    graph.push({
+        "data": {
+            "id": "num" + nodeId,
+            "label": +nodeId,
+            "parent": spId
+        },
+        "classes": "tokenNumber"
+    })
 
-    nodeWF.parent = spId;
-    nodeWF.length = nodeWF.form.length + 1 + "em";
+    var nodeWF = token;
+    // nodeWF.parent = spId;
+    nodeWF.length = nodeWF.form.length + "em";
     nodeWF.id = "nf" + nodeId;
-    nodeWF.label = nodeWF.form + toSubscript("" + +nodeId);
+    nodeWF.label = nodeWF.form;
     nodeWF.state = "normal";
+
+    nodeWF.parent = "num" + nodeId;
     graph.push({"data": nodeWF, "classes": "wf"});
 
     graph = makePOS(token, nodeId, graph);

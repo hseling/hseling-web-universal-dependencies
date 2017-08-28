@@ -17,25 +17,9 @@ function conlluDraw(content) {
     /* Draw the tree. */
     var sent = new conllu.Sentence();
     sent.serial = content;
-    var length = sent.tokens.length;
-
-    // var sortingFunc = (LEFT_TO_RIGHT) ? simpleIdSorting : rtlSorting;
-    var layout = {name: "grid", condense: true};
-    if (VERT_ALIGNMENT) {
-        layout.cols = 2;
-        layout.sort = vertAlSort;
-        $("#cy").css("height", (length * 50) + "px");
-        $("#cy").css("width", (length * 100) + "px");
-    } else {
-        layout.rows = 2;
-        $("#cy").css("height", (length * 50) + "px"); // TODO: min and max size
-        $("#cy").css("width", (length * 150) + "px");
-        if (LEFT_TO_RIGHT) {
-            layout.sort = simpleIdSorting;
-        } else {
-            layout.sort = rtlSorting;
-        }
-    }
+    changeBoxSize(sent);
+    changeEdgeStyle();
+    var layout = formLayout();
 
     var cy = window.cy = cytoscape({
         container: document.getElementById("cy"),
@@ -50,6 +34,63 @@ function conlluDraw(content) {
     });
 }
 
+
+function changeBoxSize(sent) {
+    var minWidth = 500;
+    var maxWidth = 1700;
+    var length = sent.tokens.length;
+    if (VERT_ALIGNMENT) {
+        $("#cy").css("width", "1700px");       
+        $("#cy").css("height", (length * 50) + "px");
+    } else {
+        var width = length * 150;
+        if (width < minWidth) {
+            width = minWidth;
+        } else if (width > maxWidth) {
+            width = maxWidth;
+        }
+        $("#cy").css("width", width + "px");    
+        $("#cy").css("height", "400px");    
+    }
+}
+
+
+function formLayout() {
+    var layout = {name: "grid", condense: true};
+    if (VERT_ALIGNMENT) {
+        layout.cols = 2;
+        layout.sort = vertAlSort;
+    } else {
+        layout.rows = 2;
+        if (LEFT_TO_RIGHT) {
+            layout.sort = simpleIdSorting;
+        } else {
+            layout.sort = rtlSorting;
+        }
+    }
+    return layout;
+}
+
+
+function changeEdgeStyle() {
+    var depEdgeStyle = CY_STYLE[11]["style"];
+    if (VERT_ALIGNMENT) {
+        depEdgeStyle["text-margin-y"] = 0;
+        depEdgeStyle["text-background-opacity"] = 1;
+        depEdgeStyle["text-background-color"] = "white";
+        depEdgeStyle["text-border-color"] = "black";
+        depEdgeStyle["text-border-width"] = 1;
+        depEdgeStyle["text-border-opacity"] = 1;
+        depEdgeStyle["control-point-weights"] = "0.15 0.45 0.55 0.85";
+        depEdgeStyle["text-margin-x"] = "data(length)";
+    } else {
+        depEdgeStyle["text-margin-y"] = -10;
+        depEdgeStyle["text-margin-x"] = 0;
+        depEdgeStyle["text-background-opacity"] = 0;
+        depEdgeStyle["text-border-opacity"] = 0;
+        depEdgeStyle["control-point-weights"] = "0 0.25 0.75 1";
+    }
+}
 
 function conllu2cy(sent) {
     var graph = [];
@@ -118,11 +159,13 @@ function makeDependencies(token, nodeId, graph) {
             "id": "ed" + nodeId,
             "source": "nf" + head,
             "target": "nf" + nodeId,
+            "length": (token.deprel.length / 3) + "em",
             "label": token.deprel,
             "ctrl": [55, 55, 55, 55]
         }
         var coef = (token.head - nodeId);
         if (!LEFT_TO_RIGHT) {coef *= -1}; // support for RTL
+        if (VERT_ALIGNMENT) {edgeDep.ctrl = [70, 70, 70, 70]};
         if (Math.abs(coef) != 1) {coef *= 0.7};
         edgeDep.ctrl = edgeDep.ctrl.map(function(el){ return el*coef; });
         graph.push({"data": edgeDep, "classes": "dependency"});
@@ -194,10 +237,8 @@ function rtlSorting(n1, n2) {
 function vertAlSort(n1, n2) {
     var num1 = +n1.id().slice(2);
     var num2 = +n2.id().slice(2);
-    if (num1 < num2) {
-        return -1;
-    } else if (num1 > num2) {
-        return 1;
+    if (num1 != num2) {
+        return num1 - num2;
     } else {
         if (n1.hasClass("wf") && n2.hasClass("pos")) {
             return 1;

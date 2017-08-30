@@ -407,8 +407,7 @@ function writeWF(wfInp) {
             splitTokensMod(newToken, outerIndex, sent);
         } else {
             if (!isSubtoken) {
-                console.log("Working on this");
-                console.log("outerIndex: " + outerIndex);
+                console.log("outerIndex: " + outerIndex); // Working on this
                 splitTokensMod(newToken, outerIndex, sent);
             } else {
                 alert("Sorry, this option is not supported yet!");
@@ -487,7 +486,8 @@ function splitTokensMod(oldToken, outerIndex, sent) {
     sent.tokens[outerIndex].form = newTokens[0];
 
     // creating and inserting the second part
-    var restTok = formNewToken({"id": outerIndex + 1, "form": newTokens[1]});
+    var tokId = sent.tokens[outerIndex].id;
+    var restTok = formNewToken({"id": tokId, "form": newTokens[1]});
     sent.tokens.splice(outerIndex + 1, 0, restTok);
 
     $.each(sent.tokens, function(i, tok){
@@ -495,29 +495,27 @@ function splitTokensMod(oldToken, outerIndex, sent) {
         if (tok instanceof conllu.MultiwordToken) {
             console.log("MultiwordToken");
             $.each(tok.tokens, function(j, subtok) {
-                if (i > outerIndex) {
-                    console.log("shifting: " + subtok.id);
-                    subtok.id = subtok.id += 1;
-                    console.log("done: " + tok.id);
-                }
-                if (subtok.head > outerIndex + 1) {
-                    subtok.head = +subtok.head + 1;
-                }
+                subtok = shiftIndices(subtok, i, outerIndex);
             })
         } else if (tok instanceof conllu.Token) {
             console.log("simple");
-            if (i > outerIndex) {
-                console.log("shifting: " + tok.id);
-                tok.id = tok.id + 1;
-                console.log("done: " + tok.id);
-            }
-            if (tok.head > outerIndex + 1){
-                tok.head = +tok.head + 1; // head correction after indices shift
-            };
+            tok = shiftIndices(tok, i, outerIndex);
         }
     });
-
     redrawTree(sent);
+}
+
+
+function shiftIndices(tok, i, outerIndex) {
+    if (i > outerIndex) {
+        console.log("shifting: " + tok.id);
+        tok.id = tok.id + 1;
+        console.log("done: " + tok.id);
+    }
+    if (tok.head > outerIndex + 1){
+        tok.head = +tok.head + 1;
+    };
+    return tok;
 }
 
 

@@ -404,11 +404,12 @@ function writeWF(wfInp) {
 
     if (newToken.trim().includes(" ")) { // this was a temporal solution. refactor.
         if (!thereIsSupertoken(sent)) {
-            splitTokens(newToken, outerIndex, sent);
+            splitTokensMod(newToken, outerIndex, sent);
         } else {
             if (!isSubtoken) {
-                console.log("Woring on this");
-                splitTokens(newToken, outerIndex, sent);
+                console.log("Working on this");
+                console.log("outerIndex: " + outerIndex);
+                splitTokensMod(newToken, outerIndex, sent);
             } else {
                 alert("Sorry, this option is not supported yet!");
                 drawTree();
@@ -435,18 +436,14 @@ function findConlluId(wfNode) { // TODO: refactor the arcitecture.
     var outerIndex;
     var innerIndex;
 
-    var parId = findParentId(wfNode);
-    if (parId != undefined) {
+    var parentId = findParentId(wfNode);
+    if (parentId != undefined) {
         isSubtoken = true;
-        var parentId = parId;
-        console.log("parentId: " + parentId);
         var children = cy.$("#" + parentId).children();
         outerIndex = +parentId.slice(2);
         for (var i = 0; i < children.length; ++i) {
-            if (children[i].id() == wfNode.id()){
+            if (children[i].children()[0].id() == wfNode.id()){
                 innerIndex = i;
-                console.log("Matched child: " + innerIndex);
-                console.log(children[i]);
             }
         }
     } else {
@@ -465,9 +462,6 @@ function findConlluId(wfNode) { // TODO: refactor the arcitecture.
 function findParentId(wfNode) {
     var parId = wfNode.data("parent");
     var firstPar = cy.$("#" + parId);
-    console.log(firstPar.data());
-    // var isSubtoken = (firstPar.data("parent") != undefined);
-    // console.log("isSubtoken: " + isSubtoken);
     var secParId = firstPar.data("parent");
     return secParId;
 }
@@ -484,31 +478,46 @@ function thereIsSupertoken(sent) { // quick fix. refactor the arcitecture later.
 }
 
 
-function splitTokens(oldToken, nodeId, sent) {
+function splitTokensMod(oldToken, outerIndex, sent) {
     /* Takes a token to retokenize with space in it and the Id of the token.
     Creates the new tokens, makes indices and head shifting, redraws the tree.
     All the attributes default to belong to the first part. */
 
     var newTokens = oldToken.split(" ");
-    // var sent = buildSent();
+    sent.tokens[outerIndex].form = newTokens[0];
 
-    // changing the first part
-    sent.tokens[nodeId].form = newTokens[0];
+    // creating and inserting the second part
+    var restTok = formNewToken({"id": outerIndex + 1, "form": newTokens[1]});
+    sent.tokens.splice(outerIndex + 1, 0, restTok);
 
-    // creating inserting the second part
-    var restTok = formNewToken({"id": nodeId + 1, "form": newTokens[1]});
-    sent.tokens.splice(nodeId + 1, 0, restTok);
-
-    $.each(sent.tokens, function(n, tok){
-        if (tok.head > nodeId + 1){
-            tok.head = +tok.head + 1; // head correction after indices shift
-        };
-        if (n > nodeId) {
-            tok.id = tok.id + 1; // renumbering
-        };
+    $.each(sent.tokens, function(i, tok){
+        console.log("i: " + i);
+        if (tok instanceof conllu.MultiwordToken) {
+            console.log("MultiwordToken");
+            $.each(tok.tokens, function(j, subtok) {
+                if (i > outerIndex) {
+                    console.log("shifting: " + subtok.id);
+                    subtok.id = subtok.id += 1;
+                    console.log("done: " + tok.id);
+                }
+                if (subtok.head > outerIndex + 1) {
+                    subtok.head = +subtok.head + 1;
+                }
+            })
+        } else if (tok instanceof conllu.Token) {
+            console.log("simple");
+            if (i > outerIndex) {
+                console.log("shifting: " + tok.id);
+                tok.id = tok.id + 1;
+                console.log("done: " + tok.id);
+            }
+            if (tok.head > outerIndex + 1){
+                tok.head = +tok.head + 1; // head correction after indices shift
+            };
+        }
     });
 
-    redrawTree(sent);        
+    redrawTree(sent);
 }
 
 
@@ -676,7 +685,7 @@ function switchRtlMode() {
 }
 
 
-function switchAlignment(argument) {
+function switchAlignment() {
     if (this.checked) {
         VERT_ALIGNMENT = true;
         drawTree();

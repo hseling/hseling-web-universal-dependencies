@@ -403,15 +403,7 @@ function writeWF(wfInp) {
 
 
     if (newToken.trim().includes(" ")) { // this was a temporal solution. refactor.
-        if (!thereIsSupertoken(sent)) {
-            splitTokensMod(newToken, sent, indices);
-        } else {
-            if (!isSubtoken) {
-                splitTokensMod(newToken, sent, indices);
-            } else {
-                splitTokensMod(newToken, sent, indices);
-            }
-        }
+        splitTokens(newToken, sent, indices);
     } else {
         if (isSubtoken) {
             // TODO: think, whether it should be lemma or form.
@@ -464,7 +456,9 @@ function findParentId(wfNode) {
 }
 
 
-function thereIsSupertoken(sent) { // quick fix. refactor the arcitecture later.
+function thereIsSupertoken(sent) {
+    /* Indicates that a sent contains supertoken.\
+    Is notused anywhere at tye moment */
     var supTokFound = false;
     $.each(sent.tokens, function(n, tok) {
         if (tok instanceof conllu.MultiwordToken) {
@@ -475,7 +469,7 @@ function thereIsSupertoken(sent) { // quick fix. refactor the arcitecture later.
 }
 
 
-function splitTokensMod(oldToken, sent, indices) {
+function splitTokens(oldToken, sent, indices) {
     /* Takes a token to retokenize with space in it and the Id of the token.
     Creates the new tokens, makes indices and head shifting, redraws the tree.
     All the attributes default to belong to the first part. */
@@ -545,10 +539,19 @@ function mergeNodes(toMerge, side, how) {
     /* Support for merging tokens into either a new token or a supertoken.
     Recieves the node to merge, side (right or left) and a string denoting
     how to merge the nodes. In case of success, redraws the tree. */
+
+    var indices = findConlluId(toMerge);
+    var isSubtoken = indices[0];
+
+    if (isSubtoken) {
+        alert("Sorry, merging subtokens is not supported!");
+        drawTree();
+        return;
+    }
     
-    var nodeId = Number(toMerge.id().slice(2)) - 1;
-    var sent = buildSent();
+    var nodeId = indices[1];
     var otherId = (side == "right") ? nodeId + 1 : nodeId - 1;
+    var sent = buildSent();
 
     if (otherId >= 0 && sent.tokens[otherId]) {
         var main = toMerge.data("form");

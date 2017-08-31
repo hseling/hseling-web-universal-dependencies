@@ -404,14 +404,14 @@ function writeWF(wfInp) {
 
     if (newToken.trim().includes(" ")) { // this was a temporal solution. refactor.
         if (!thereIsSupertoken(sent)) {
-            splitTokensMod(newToken, outerIndex, sent);
+            splitTokensMod(newToken, sent, indices);
         } else {
             if (!isSubtoken) {
-                console.log("outerIndex: " + outerIndex); // Working on this
-                splitTokensMod(newToken, outerIndex, sent);
+                splitTokensMod(newToken, sent, indices);
             } else {
-                alert("Sorry, this option is not supported yet!");
-                drawTree();
+                console.log("Splitting a subtoken. Working on this!");
+                console.log("outerIndex: " + outerIndex); // Working on this
+                splitTokensMod(newToken, sent, indices);
             }
         }
     } else {
@@ -477,18 +477,33 @@ function thereIsSupertoken(sent) { // quick fix. refactor the arcitecture later.
 }
 
 
-function splitTokensMod(oldToken, outerIndex, sent) {
+function splitTokensMod(oldToken, sent, indices) {
     /* Takes a token to retokenize with space in it and the Id of the token.
     Creates the new tokens, makes indices and head shifting, redraws the tree.
     All the attributes default to belong to the first part. */
+    var isSubtoken = indices[0];
+    var outerIndex = indices[1];
+    var innerIndex = indices[2];
 
     var newTokens = oldToken.split(" ");
-    sent.tokens[outerIndex].form = newTokens[0];
+    if (isSubtoken) {
+        console.log("Splitting subtoken. Indices: " + indices);
+        sent.tokens[outerIndex].tokens[innerIndex].form = newTokens[0];
+        var tokId = sent.tokens[outerIndex].tokens[innerIndex].id;
 
-    // creating and inserting the second part
-    var tokId = sent.tokens[outerIndex].id;
-    var restTok = formNewToken({"id": tokId, "form": newTokens[1]});
-    sent.tokens.splice(outerIndex + 1, 0, restTok);
+        // creating and inserting the second part
+        var restTok = formNewToken({"id": tokId + 1, "form": newTokens[1]});
+        sent.tokens[outerIndex].tokens.splice(innerIndex + 1, 0, restTok);
+        console.log(sent.serial);
+    } else {
+        sent.tokens[outerIndex].form = newTokens[0];
+        var tokId = sent.tokens[outerIndex].id;
+
+        // creating and inserting the second part
+        var restTok = formNewToken({"id": tokId, "form": newTokens[1]});
+        sent.tokens.splice(outerIndex + 1, 0, restTok);
+    }
+
 
     $.each(sent.tokens, function(i, tok){
         console.log("i: " + i);

@@ -275,6 +275,15 @@ function changeNode() {
     if (this.data("label") == undefined) {this.data("label", "")};
 
     $("#mute").addClass("activated");
+    var sent = buildSent();
+    var length = sent.tokens.length;
+    if (VERT_ALIGNMENT) {
+        $(".activated#mute").css("height", (length * 50) + "px");
+    } else {
+        var width = getWidth(length);
+        $(".activated#mute").css("width", width + "px");
+    }
+
     $("#edit").css("top", param.y1)
         .css("left", param.x1)
         .css("height", param.h)
@@ -291,7 +300,12 @@ function changeNode() {
 function changeEdgeParam(param) {
     param.w = 100;
     param.h = cy.nodes()[0].renderedHeight();
-    param.x1 = param.x1 + (param.x2 - param.x1)/2 - 50;
+    if (VERT_ALIGNMENT) {
+        param.y1 = param.y1 + (param.y2 - param.y1)/2 - 15;
+        param.x1 = param.x2 - 70;
+    } else {
+        param.x1 = param.x1 + (param.x2 - param.x1)/2 - 50;
+    }
     param.color = "white";
     return param;
 }

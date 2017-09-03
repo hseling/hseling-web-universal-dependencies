@@ -34,8 +34,8 @@ function ambiguetyPresent(CGtext) {
     var lines = CGtext.split(/"<(.*)>"/);
 
     // suppose the indent is consistent troughout the sentence
-    var indent = lines[2].replace(/^;?( +|\t)/, "").split(/[^\s]/)[0];
     for (var i = 2; i < lines.length; i += 2) {
+        var indent = lines[i].replace("\n", "").split(/[^\s]/)[0];
         var ana = lines[i].trim(); 
         if (ana.includes(indent) && !ana.includes(indent + indent)) {
             // console.log(lines[i]);

@@ -595,6 +595,7 @@ function buildSent() {
         currentSent = CG2conllu(currentSent);
         if (currentSent == undefined) {
             cantConvertCG();
+            console.log("can't convert CG");
             drawTree(); // not sure if this line is ok
             return;
         }
@@ -688,6 +689,13 @@ function cantConvertCG() {
     document.getElementById("viewConllu").disabled = true;
     $("#warning").css("background-color", "pink")
         .text("Warning: CG containing ambiguous analyses can't be converted into CoNLL-U!");
+}
+
+
+function clearWarning() {
+    document.getElementById("viewConllu").disabled = false;
+    $("#warning").css("background-color", "white")
+        .text("");
 }
 
 

@@ -55,6 +55,12 @@ function main() {
         }
         else {
             console.log("localStorage is not avaliable :(")
+            // add a nice message so the user has some idea how to fix this
+            var warnMsg = document.createElement('p');
+            warnMsg.innerHTML = "Unable to save to localStorage, maybe third-party cookies are blocked?";
+            var warnLoc = document.getElementById('warning');
+            warnLoc.appendChild(warnMsg);
+
         }
 
         // $("#indata").keyup(drawTree);
@@ -181,6 +187,24 @@ function showDataIndiv() {
     drawTree();
 }
 
+function goToSenSent() {
+    RESULTS[CURRENTSENTENCE] = document.getElementById("indata").value;
+    CURRENTSENTENCE = parseInt(document.getElementById("currentsen").value) - 1;
+    if (CURRENTSENTENCE < 0)  {
+        CURRENTSENTENCE = 0;
+    }
+    if (CURRENTSENTENCE > (AVAILABLESENTENCES - 1))  {
+        CURRENTSENTENCE = AVAILABLESENTENCES - 1;
+    }
+    if (CURRENTSENTENCE < (AVAILABLESENTENCES - 1)) {
+        document.getElementById("nextSenBtn").disabled = false;
+    }
+    if (CURRENTSENTENCE == 0) {
+        document.getElementById("prevSenBtn").disabled = true;
+    }
+    showDataIndiv();
+}
+
 function prevSenSent() {
     RESULTS[CURRENTSENTENCE] = document.getElementById("indata").value;
     CURRENTSENTENCE--;
@@ -213,7 +237,7 @@ function exportCorpora() {
             
     var link = document.createElement('a');
     var mimeType = 'text/plain';
-
+    document.body.appendChild(link); // needed for FF
     link.setAttribute('download', FILENAME);
     link.setAttribute('href', 'data:' + mimeType + ';charset=utf-8,' + encodeURIComponent(finalcontent));
     link.click();
@@ -221,22 +245,20 @@ function exportCorpora() {
 
 
 function getTreebank() {
-    /* Returns the current treebank. */
-    var currentSent = document.getElementById("indata").value;    
 
-    // var currentFormat = detectFormat(currentSent);
-    // if (currentFormat == FORMAT) {
     RESULTS[CURRENTSENTENCE] = document.getElementById("indata").value;
     var finalcontent = "";
+    // loop through all the trees
     for(var x=0; x < RESULTS.length; x++){
-        finalcontent = finalcontent + RESULTS[x];
+        // add them to the final file, but get rid of any trailing whitespace
+        finalcontent = finalcontent + RESULTS[x].trim();
+        // if it's not the last tree, add two newlines (e.g. one blank line)
         if(x != ((RESULTS.length)-1)){
             finalcontent = finalcontent + "\n\n";
         }
     }
-    // } else { // convert cur sent }
-
-    return finalcontent;
+    // output final newline
+    return finalcontent + "\n\n";
 }
         
 

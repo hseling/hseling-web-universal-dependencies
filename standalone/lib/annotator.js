@@ -24,9 +24,11 @@ function main() {
 
         // native project code
         ROOT + 'CG2conllu.js',
+        ROOT + 'SD2conllu.js',
         ROOT + 'converters.js',
         ROOT + 'gui.js',
         ROOT + 'visualiser.js',
+        ROOT + 'validation.js',
         ROOT + 'cy-style.js'
     );
 
@@ -185,7 +187,11 @@ function loadDataInIndex() {
 
 function showDataIndiv() {
     console.log('showDataIndiv()');
-    document.getElementById('indata').value = (RESULTS[CURRENTSENTENCE]);
+    if(RESULTS[CURRENTSENTENCE] != undefined) {
+      document.getElementById('indata').value = (RESULTS[CURRENTSENTENCE]);
+    } else {
+      document.getElementById('indata').value = "";
+    }
     document.getElementById('currentsen').value = (CURRENTSENTENCE+1);
     document.getElementById('totalsen').innerHTML = AVAILABLESENTENCES;
     drawTree();
@@ -299,7 +305,11 @@ function drawTree() {
         }
     };
 
-    if (FORMAT == "CoNLL-U" || (FORMAT == "CG3" && !AMBIGUOUS)) {
+    if (FORMAT == "SD") {
+        content = SD2conllu(content);
+    }
+
+    if (FORMAT == "CoNLL-U" || (FORMAT == "CG3" && !AMBIGUOUS) || FORMAT == "SD") {
         var newContent = cleanConllu(content);
         if(newContent != content) {
             content = newContent;

@@ -10,6 +10,7 @@ var RESULTS = [];
 var LOC_ST_AVALIABLE = false;
 var SERVER_RUNNING = false;
 var AMBIGUOUS = false;
+var LABELS = [];
  
 
 function main() {
@@ -212,6 +213,8 @@ function goToSenSent() {
     if (CURRENTSENTENCE == 0) {
         document.getElementById("prevSenBtn").disabled = true;
     }
+    
+    clearLabels();
     showDataIndiv();
 }
 
@@ -224,6 +227,7 @@ function prevSenSent() {
     if (CURRENTSENTENCE == 0) {
         document.getElementById("prevSenBtn").disabled = true;
     }
+    clearLabels();
     showDataIndiv();
 }
 
@@ -237,9 +241,17 @@ function nextSenSent() {
     if (CURRENTSENTENCE > 0) {
         document.getElementById("prevSenBtn").disabled = false;
     }
+    clearLabels();
     showDataIndiv();
 }
 
+function clearLabels() {
+    LABELS = [];
+    var htmlLabels = document.getElementById('treeLabels');
+    while (htmlLabels.firstChild) {
+      htmlLabels.removeChild(htmlLabels.firstChild);
+    }
+}
 
 //Export Corpora to file
 function exportCorpora() {
@@ -276,7 +288,7 @@ function getTreebank() {
     for(var x=0; x < RESULTS.length; x++){
         // add them to the final file, but get rid of any trailing whitespace
         finalcontent = finalcontent + RESULTS[x].trim();
-        // if it's not the last tree, add two newlines (e.g. one blank line)
+        // if it's not the last tree, add two ewlines (e.g. one blank line)
         if(x != ((RESULTS.length)-1)){
             finalcontent = finalcontent + "\n\n";
         }
@@ -292,6 +304,9 @@ function drawTree() {
     } catch (err) {};
 
     var content = $("#indata").val();
+    // remove extra spaces at the end of lines. #89
+    content = content.replace(/ +\n/, '\n');
+    $("#indata").val(content);
     FORMAT = detectFormat(content);
 
     $("#detected").html("Detected: " + FORMAT + " format");
@@ -367,6 +382,7 @@ function cleanConllu(content) {
 
 
 function detectFormat(content) {
+    clearLabels();
     //TODO: too many "hacks" and presuppositions. refactor.
 
     content = content.trim();
@@ -376,7 +392,32 @@ function detectFormat(content) {
     if (firstWord[0] === '#'){
         var following = 1;
         while (firstWord[0] === '#' && following < content.length){
+            // TODO: apparently we need to log the thing or it won't register???
+            console.log('detectFormat|while| ' + firstWord);
             firstWord = content.split("\n")[following];
+            // pull out labels and put them in HTML, TODO: this probably
+            // wants to go somewhere else.
+            if(firstWord.search('# labels') >= 0) {
+              var labels = firstWord.split("=")[1].split(" ");
+              for(var i = 0; i < labels.length; i++) {
+                var seen = false;
+                for(var j = 0; j < LABELS.length; j++) {
+                  if(labels[i] == LABELS[j]) {
+                    seen = true; 
+                  }
+                }
+                if(!seen) {
+                  LABELS.push(labels[i]);
+                }
+              }
+              var htmlLabels = document.getElementById('treeLabels');
+              var labelMsg = document.createElement('span');
+              for(var k = 0; k < LABELS.length; k++) { 
+                labelMsg.append(LABELS[k]) ;
+              }
+              htmlLabels.append(labelMsg) ;
+              console.log("FOUND LABELS:" + LABELS);
+            }
             following ++;
         }
     }
@@ -389,9 +430,10 @@ function detectFormat(content) {
     // TODO: better plaintext recognition
     } else if (!content.trim("\n").includes("\n")) {
         FORMAT = "plain text";
-
-    } else {
+    } else if (content.trim("\n").includes("(")) {
         FORMAT = "SD";
+    } else { 
+        FORMAT = "Unknown";
     }
 
     return FORMAT

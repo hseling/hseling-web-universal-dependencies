@@ -137,6 +137,11 @@ function loadFromFile(e) {
 }
 
 
+function addSent() {
+        AVAILABLESENTENCES = AVAILABLESENTENCES + 1; 
+        showDataIndiv();    
+}
+
 function removeCurSent() {
     var conf = confirm("Do you want to remove the sentence?");
     if (conf) {
@@ -221,6 +226,9 @@ function goToSenSent() {
 function prevSenSent() {
     RESULTS[CURRENTSENTENCE] = document.getElementById("indata").value;
     CURRENTSENTENCE--;
+    if (CURRENTSENTENCE < 0)  {
+        CURRENTSENTENCE = 0;
+    }
     if (CURRENTSENTENCE < (AVAILABLESENTENCES - 1)) {
         document.getElementById("nextSenBtn").disabled = false;
     }
@@ -310,6 +318,25 @@ function drawTree() {
     FORMAT = detectFormat(content);
 
     $("#detected").html("Detected: " + FORMAT + " format");
+	console.log(FORMAT);
+	if (FORMAT == "CoNLL-U") {
+		$("#viewOther").hide();
+		$("#viewCG").removeClass("active");
+		$("#viewOther").removeClass("active");
+		$("#viewConllu").addClass("active");
+	} else if (FORMAT == "CG3") {
+		$("#viewOther").hide();
+		$("#viewConllu").removeClass("active");
+		$("#viewOther").removeClass("active");
+		$("#viewCG").addClass("active");
+	} else {
+		$("#viewOther").show();
+		$("#viewOther").addClass("active");
+		$("#viewConllu").removeClass("active");
+		$("#viewCG").removeClass("active");
+		$("#viewOther").text(FORMAT);
+	}
+	 	
 
     if (FORMAT == "CG3") {
         content = CG2conllu(content)

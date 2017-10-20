@@ -78,6 +78,26 @@ var CY_STYLE = [{
     "line-color": "#111"
   }
 }, {
+  "selector": "edge.dependency-error",
+  "style": {
+    "target-arrow-shape": "triangle",
+    "target-arrow-color": "#d11",
+    "line-color": "#d11",
+    "text-margin-y": -10,
+    "curve-style": "unbundled-bezier",
+    "control-point-distances": "data(ctrl)",
+    "control-point-weights": "0 0.25 0.75 1",
+    "edge-distances": "node-position",
+    "label": "data(label)",
+    "text-events": "yes"
+  }
+}, {
+    "selector": "edge.dependency-error.selected",
+    "style": {
+        "line-color": FANCY,
+        "target-arrow-color": FANCY
+    }
+}, {
   "selector": "edge.dependency",
   "style": {
     "target-arrow-shape": "triangle",

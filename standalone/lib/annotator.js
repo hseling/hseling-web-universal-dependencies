@@ -5,6 +5,7 @@ var FILENAME = 'corpora.txt'; // default name
 var ROOT = './lib/';
 var CONTENTS = "";
 var AVAILABLESENTENCES = 0;
+var HIDDEN_CODE_WINDOW = false;
 var CURRENTSENTENCE = 0;
 var RESULTS = [];
 var LOC_ST_AVALIABLE = false;
@@ -15,10 +16,12 @@ var LABELS = [];
 
 function main() {
     head.js(
-        ROOT + 'ext/jquery.min.js',
-        ROOT + 'ext/jquery-ui.min.js',
+        ROOT + 'ext/jquery-3.2.1.min.js',
+        ROOT + 'ext/jquery-ui-1.12.1/jquery-ui.min.js',
         ROOT + 'ext/cytoscape.min.js',
         ROOT + 'ext/undomanager.js',
+        ROOT + 'ext/popper.min.js',
+        ROOT + 'ext/bootstrap.min.js',
 
         // CoNLL-U parser from https://github.com/FrancessFractal/conllu
         ROOT + 'ext/conllu/conllu.js',
@@ -86,12 +89,16 @@ function main() {
 
 
 function addHandlers() {
+    // NOTE: If you change the style of a node (e.g. its selector) then
+    // you also need to update the event handler here
     cy.on('click', 'node.wf', drawArcs);
     cy.on('cxttapend', 'edge.dependency', selectArc);
+    cy.on('cxttapend', 'edge.dependency-error', selectArc);
     cy.on('click', 'node.pos', changeNode);
     cy.on('click', '$node > node', selectSup);
     cy.on('cxttapend', 'node.wf', changeNode);
     cy.on('click', 'edge.dependency', changeNode);
+    cy.on('click', 'edge.dependency-error', changeNode);
 }
 
 
@@ -169,7 +176,7 @@ function loadDataInIndex() {
         var splitted = CONTENTS.split("\n\n");
     }
 
-    console.log('loadDataInIndex ' + splitted.length)
+    console.log('loadDataInIndex |' + FORMAT + " | " + splitted.length)
     for (var i = splitted.length - 1; i >= 0; i--) {
         if (splitted[i].trim() === "") {
             splitted.splice(i, 1);
@@ -393,19 +400,25 @@ function cleanConllu(content) {
         return content;
     }
     var res = content.search("\t");
+    var spaceToTab = false;
+    // If we don't find any tabs, then we want to replace multiple spaces with tabs
     if(res < 0) {
-        console.log("no tabs");
-        content = content.replace(/  */g, "\t");
+        spaceToTab = true; 
     }
     // remove blank lines
     var lines = content.split("\n");
     var newContent = "";
     for(var i = 0; i < lines.length; i++) {
-        if(lines[i].trim().length == 0) {
+        var newLine = lines[i].trim();
+        if(newLine.length == 0) {
             continue;
         }
+        // If there are no spaces and the line isn't a comment, then replace more than one space with a tab
+        if(newLine[0] != "#" && spaceToTab) {
+            newLine = newLine.replace(/  */g, "\t");
+        }
         // strip the extra tabs/spaces at the end of the line 
-        newContent = newContent + lines[i].trim() + "\n";
+        newContent = newContent + newLine + "\n";
     }
     return newContent;
 }
@@ -441,27 +454,40 @@ function detectFormat(content) {
                 }
               }
               var htmlLabels = document.getElementById('treeLabels');
-              var labelMsg = document.createElement('span');
               for(var k = 0; k < LABELS.length; k++) { 
-                labelMsg.append(LABELS[k]) ;
+                if(LABELS[k].trim() == "") {
+                  continue;
+                }
+                var labelMsg = document.createElement('span');
+                var labelTxt = document.createTextNode(LABELS[k]);
+                labelMsg.className = 'treebankLabel';
+                labelMsg.appendChild(labelTxt);
+                htmlLabels.append(labelMsg) ;
               }
-              htmlLabels.append(labelMsg) ;
               console.log("FOUND LABELS:" + LABELS);
             }
             following ++;
         }
     }
 
+    var trimmedContent = content.trim("\n");
+    //console.log(trimmedContent + ' | ' + trimmedContent[trimmedContent.length-1]);
     if (firstWord.match(/"<.*/)) {
+	// SAFE: The first token in the string should start with "<
         FORMAT = "CG3";
     } else if (firstWord.match(/1/)) {
+	// UNSAFE: The first token in the string should be 1
         FORMAT = "CoNLL-U";
-
-    // TODO: better plaintext recognition
-    } else if (!content.trim("\n").includes("\n")) {
-        FORMAT = "plain text";
-    } else if (content.trim("\n").includes("(")) {
+    } else if (trimmedContent.includes("(") && trimmedContent.includes("\n") && (trimmedContent.includes(")\n") || trimmedContent[trimmedContent.length-1] == ")")) {
+	// SAFE: To be SDParse as opposed to plain text we need at least 2 lines.
+	// UNSAFE: SDParse should include at least one line ending in ) followed by a newline
+	// UNSAFE: The last character in the string should be a )
         FORMAT = "SD";
+    // TODO: better plaintext recognition
+    } else if (!trimmedContent.includes("\t") && trimmedContent[trimmedContent.length-1] != ")") {
+	// SAFE: Plain text and SDParse should not include tabs. CG3/CoNLL-U should include tabs
+	// UNSAFE: SDParse should end the line with a ), but plain text conceivably could too
+        FORMAT = "plain text";
     } else { 
         FORMAT = "Unknown";
     }
@@ -503,6 +529,7 @@ function getCorpusData() {
 
 
 function loadData(data) {
+    console.log("loadData");
     if (data["content"]) {
         CONTENTS = data["content"];
     }
@@ -542,6 +569,11 @@ function storageAvailable(type) {
     }
 }
 
+function toggleCodeWindow() {
+	$("#codeVisibleButton").toggleClass('fa-chevron-down', 'fa-chevron-up');
+	console.log('toggleCodeWindow()');
+	$("#indata").toggle('show');
+}
 
 function focusOut(key) {
     if (key.which == ESC) {

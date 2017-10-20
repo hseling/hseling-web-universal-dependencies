@@ -10,11 +10,23 @@ var ENTER = 13;
 var ESC = 27;
 var RIGHT = 39;
 var LEFT = 37;
+var UP = 38;
+var DOWN = 40;
+var MINUS = 189;
+var EQUALS = 187; // also PLUS
+var J = 74;
+var K = 75;
 var D = 68;
 var I = 73;
 var S = 83;
 var M = 77;
 var SIDES = {39: "right", 37: "left"};
+var POS2RELmappings = {
+	"PUNCT": "punct",
+	"DET": "det",
+	"CCONJ": "cc",
+	"SCONJ": "mark"
+}
 
 
 function setUndos(undoManager) {
@@ -70,9 +82,40 @@ function writeArc(sourceNode, destNode) {
     var destIndex = +destNode.data("id").slice(2);
 
     var indices = findConlluId(destNode);
+    // For some reason we need all of this code otherwise stuff becomes undefined
+    var idx = findConlluId(destNode)[1];
     var sent = buildSent();
-
+    var tokens = sent.tokens;
+    console.log(idx + ' ' + tokens);
+    var thisToken = tokens[idx];
+    console.log('writeArc ' + destIndex + ' ' + thisToken['upostag']); 
     var sentAndPrev = changeConlluAttr(sent, indices, "head", sourceIndex);
+
+    // If the target POS tag is PUNCT set the deprel to @punct [99%]
+    // IF the target POS tag is CCONJ set the deprel to @cc [88%]
+    // IF the target POS tag is SCONJ set the deprel to @mark [86%]
+    // IF the target POS tag is DET set the deprel to @det [83%]
+    // TODO: Put this somewhere better
+	if(thisToken['upostag'] in POS2RELmappings) {
+		sentAndPrev = changeConlluAttr(sent, indices, "deprel", POS2RELmappings[thisToken['upostag']])
+	}
+	/**
+    if(thisToken['upostag'] == 'PUNCT') {
+      sentAndPrev = changeConlluAttr(sent, indices, "deprel", "punct");
+    }else if(thisToken['upostag'] == 'DET') {
+      sentAndPrev = changeConlluAttr(sent, indices, "deprel", "det");
+    }else if(thisToken['upostag'] == 'CCONJ') {
+      sentAndPrev = changeConlluAttr(sent, indices, "deprel", "cc");
+    }else if(thisToken['upostag'] == 'SCONJ') {
+      sentAndPrev = changeConlluAttr(sent, indices, "deprel", "mark");
+    }
+	**/
+     
+    // AUX can be @cop also
+//    }else if(thisToken['upostag'] == 'AUX') {
+//      sentAndPrev = changeConlluAttr(sent, indices, "deprel", "aux");
+
+//    var sentAndPrev = changeConlluAttr(sent, indices, "head", sourceIndex);
     sent = sentAndPrev[0];
     var pervVal = sentAndPrev[1];
 
@@ -169,6 +212,7 @@ function keyUpClassifier(key) {
 
     // looking if there are selected arcs
     var selArcs = cy.$("edge.dependency.selected");
+    var selArcs = cy.$("edge.dependency-error.selected");
     var destNodes = cy.$("node[state='arc-dest']");
     // looking if there is a POS label to be modified
     var posInp = $(".activated.np");
@@ -205,7 +249,8 @@ function keyUpClassifier(key) {
     } else if (deprelInp.length) {
         if (key.which == ENTER) {
             var res = deprelInp.val();
-            res = res.replace(/[⊲⊳]/g, '');
+            // to get rid of the magic direction arrows
+            res = res.replace(/[⊳⊲]/, '');
             writeDeprel(res);
         };
     } else if (wf.length == 1) {
@@ -267,6 +312,7 @@ function removeSup(st) {
 
 
 function changeNode() {
+//    console.log("changeNode() " + this.data("label"));
     this.addClass("input");
     var id = this.id().slice(0, 2);
     var param = this.renderedBoundingBox();
@@ -275,6 +321,12 @@ function changeNode() {
 
     // for some reason, there are problems with label in deprels without this 
     if (this.data("label") == undefined) {this.data("label", "")};
+
+    // to get rid of the magic direction arrows
+    var res = this.data("label").replace(/[⊳⊲]/, '');
+    this.data("label", res);
+
+ //   console.log("[2] changeNode() " + this.data("label") + " " + res);
 
     $("#mute").addClass("activated");
     var sent = buildSent();
@@ -285,6 +337,10 @@ function changeNode() {
         var width = getWidth(length);
         $(".activated#mute").css("width", width + "px");
     }
+
+    // TODO: rank the labels + make the style better  
+    var availableLabels = U_DEPRELS ;
+    $("#edit").autocomplete({source: availableLabels});
 
     $("#edit").css("top", param.y1)
         .css("left", param.x1)
@@ -340,21 +396,6 @@ function writeDeprel(deprelInp, indices) { // TODO: DRY
     var head = parseInt(sent.tokens[outerIndex].head);
     console.log('writeDeprel');
     console.log(head + ' ' + cur);
-
-    if(!is_udeprel(deprelInp)) {
-      console.log('writeDeprel @valid=false ' + Id);
-      // TODO: Find out a way to change the colour of the label, e.g. to red.
-    }
-
-    // Append ⊲ or ⊳ to indicate direction of the arc (helpful if 
-    // there are many arcs. TODO: This should ideally be external to the 
-    // text of the deprel (e.g. done in the cytoscape arc style thing)
-    if(head < cur && deprelInp.search('⊳') < 0) { 
-      deprelInp = deprelInp + '⊳';
-    } else if(head > cur && deprelInp.search('⊲') < 0) {
-      deprelInp = '⊲' + deprelInp;
-    }
-
 
     var sentAndPrev = changeConlluAttr(sent, indices, "deprel", deprelInp);
     sent = sentAndPrev[0];
@@ -686,7 +727,7 @@ function viewAsConllu() {
     var text = $("#indata").val();
     var currentFormat = detectFormat(text);
 
-	if ($("#viewOther").text() == "plain text") {
+	if ($("#viewOther").text() == "plain text" || $("#viewOther").text() == "SD") {
 		  toConllu();
 	}	
 
@@ -754,18 +795,33 @@ function switchAlignment() {
     }
 }
 
-$('#currentsen').keyup(function(e){
-	if(e.keyCode == 13) {
-		goToSenSent();
-	} else if(e.keyCode == 38 || e.keyCode == 75) { // up arrow || k
-		prevSenSent();
-	} else if(e.keyCode == 40 || e.keyCode == 74) { // down arrow || j
-		nextSenSent();
-	} else if(e.keyCode == 189) { // -
-		removeCurSent();
-	} else if(e.keyCode == 187 ) { // + || =
-		//addSent();
-	}
-});
+$(document).ready(function(){
+	$('#currentsen').keyup(function(e){
+		if(e.keyCode == 13) {
+			goToSenSent();
+		} else if(e.keyCode == UP || e.keyCode == K) {
+			prevSenSent();
+		} else if(e.keyCode == DOWN || e.keyCode == J) {
+			nextSenSent();
+		} else if(e.keyCode == MINUS) {
+			removeCurSent();
+		} else if(e.keyCode == EQUALS ) {
+			addSent();
+		}
+	});
 
-$('#viewText').hide() ;
+	$('#helpModal').on('show.bs.modal', console.log);
+
+	$('#helpModal').on('shown.bs.modal', function(e) {
+		//alert('HARGLE BARGLE');
+		$(e.target).find('.modal-body').load('help.html');
+	});
+
+//	$('.ui-autocomplete').keydown(function(e) {
+//		if(e.keyCode == 9) { // Tab
+//			console.log('test');
+//		}
+//	});
+
+	$('#viewText').hide() ;
+});

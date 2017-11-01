@@ -29,6 +29,7 @@ function main() {
         // native project code
         ROOT + 'CG2conllu.js',
         ROOT + 'SD2conllu.js',
+        ROOT + 'Brackets2conllu.js',
         ROOT + 'converters.js',
         ROOT + 'gui.js',
         ROOT + 'visualiser.js',
@@ -319,6 +320,8 @@ function getTreebank() {
 
 
 function drawTree() {
+    // This function is called whenever the input area changes
+    //
     try {
         cy.destroy();
     } catch (err) {};
@@ -330,24 +333,24 @@ function drawTree() {
     FORMAT = detectFormat(content);
 
     $("#detected").html("Detected: " + FORMAT + " format");
-	console.log(FORMAT);
-	if (FORMAT == "CoNLL-U") {
-		$("#viewOther").hide();
-		$("#viewCG").removeClass("active");
-		$("#viewOther").removeClass("active");
-		$("#viewConllu").addClass("active");
-	} else if (FORMAT == "CG3") {
-		$("#viewOther").hide();
-		$("#viewConllu").removeClass("active");
-		$("#viewOther").removeClass("active");
-		$("#viewCG").addClass("active");
-	} else {
-		$("#viewOther").show();
-		$("#viewOther").addClass("active");
-		$("#viewConllu").removeClass("active");
-		$("#viewCG").removeClass("active");
-		$("#viewOther").text(FORMAT);
-	}
+    console.log('drawTree() ' + FORMAT);
+    if (FORMAT == "CoNLL-U") {
+        $("#viewOther").hide();
+        $("#viewCG").removeClass("active");
+        $("#viewOther").removeClass("active");
+        $("#viewConllu").addClass("active");
+    } else if (FORMAT == "CG3") {
+        $("#viewOther").hide();
+        $("#viewConllu").removeClass("active");
+        $("#viewOther").removeClass("active");
+        $("#viewCG").addClass("active");
+    } else {
+        $("#viewOther").show();
+        $("#viewOther").addClass("active");
+        $("#viewConllu").removeClass("active");
+        $("#viewCG").removeClass("active");
+        $("#viewOther").text(FORMAT);
+    }
 
 
     if (FORMAT == "CG3") {
@@ -363,7 +366,12 @@ function drawTree() {
         content = SD2conllu(content);
     }
 
-    if (FORMAT == "CoNLL-U" || (FORMAT == "CG3" && !AMBIGUOUS) || FORMAT == "SD") {
+    if (FORMAT == "Brackets") {
+        content = Brackets2conllu(content);
+    }
+
+
+    if (FORMAT == "CoNLL-U" || (FORMAT == "CG3" && !AMBIGUOUS) || FORMAT == "SD" || FORMAT == "Brackets") {
         var newContent = cleanConllu(content);
         // If there are >1 CoNLL-U format sentences is in the input, treat them as such
         if(newContent.match(/\n\n/)) {
@@ -431,73 +439,76 @@ function cleanConllu(content) {
 
 
 function detectFormat(content) {
-	clearLabels();
-	//TODO: too many "hacks" and presuppositions. refactor.
+    clearLabels();
+    //TODO: too many "hacks" and presuppositions. refactor.
 
-	content = content.trim();
-	var firstWord = content.replace(/\n/g, " ").split(" ")[0];
+    content = content.trim();
+    var firstWord = content.replace(/\n/g, " ").split(" ")[0];
 
-	// handling # comments at the beginning
-	if (firstWord[0] === '#'){
-		var following = 1;
-		while (firstWord[0] === '#' && following < content.length){
-			// TODO: apparently we need to log the thing or it won't register???
-			console.log('detectFormat|while| ' + firstWord);
-			firstWord = content.split("\n")[following];
-			// pull out labels and put them in HTML, TODO: this probably
-			// wants to go somewhere else.
-			if(firstWord.search('# labels') >= 0) {
-				var labels = firstWord.split("=")[1].split(" ");
-				for(var i = 0; i < labels.length; i++) {
-					var seen = false;
-					for(var j = 0; j < LABELS.length; j++) {
-						if(labels[i] == LABELS[j]) {
-							seen = true;
-						}
-					}
-					if(!seen) {
-						LABELS.push(labels[i]);
-					}
-				}
-				var htmlLabels = $('#treeLabels');
-				for(var k = 0; k < LABELS.length; k++) {
-					if(LABELS[k].trim() == "") {
-						continue;
-					}
-					htmlLabels.append($('<span></span>')
-						.addClass('treebankLabel')
-						.text(LABELS[k])
-					);
-				}
-				console.log("FOUND LABELS:" + LABELS);
-			}
-			following ++;
-		}
-	}
+    // handling # comments at the beginning
+    if (firstWord[0] === '#'){
+        var following = 1;
+        while (firstWord[0] === '#' && following < content.length){
+            // TODO: apparently we need to log the thing or it won't register???
+            console.log('detectFormat|while| ' + firstWord);
+            firstWord = content.split("\n")[following];
+            // pull out labels and put them in HTML, TODO: this probably
+            // wants to go somewhere else.
+            if(firstWord.search('# labels') >= 0) {
+                var labels = firstWord.split("=")[1].split(" ");
+                for(var i = 0; i < labels.length; i++) {
+                    var seen = false;
+                    for(var j = 0; j < LABELS.length; j++) {
+                        if(labels[i] == LABELS[j]) {
+                            seen = true;
+                        }
+                    }
+                    if(!seen) {
+                        LABELS.push(labels[i]);
+                    }
+                }
+                var htmlLabels = $('#treeLabels');
+                for(var k = 0; k < LABELS.length; k++) {
+                    if(LABELS[k].trim() == "") {
+                        continue;
+                    }
+                    htmlLabels.append($('<span></span>')
+                        .addClass('treebankLabel')
+                        .text(LABELS[k])
+                    );
+                }
+                console.log("FOUND LABELS:" + LABELS);
+            }
+            following ++;
+        }
+    }
 
-	var trimmedContent = content.trim("\n");
-	//console.log(trimmedContent + ' | ' + trimmedContent[trimmedContent.length-1]);
-	if (firstWord.match(/"<.*/)) {
-	// SAFE: The first token in the string should start with "<
-		FORMAT = "CG3";
-	} else if (firstWord.match(/1/)) {
-	// UNSAFE: The first token in the string should be 1
-		FORMAT = "CoNLL-U";
-	} else if (trimmedContent.includes("(") && trimmedContent.includes("\n") && (trimmedContent.includes(")\n") || trimmedContent[trimmedContent.length-1] == ")")) {
-	// SAFE: To be SDParse as opposed to plain text we need at least 2 lines.
-	// UNSAFE: SDParse should include at least one line ending in ) followed by a newline
-	// UNSAFE: The last character in the string should be a )
-		FORMAT = "SD";
-	// TODO: better plaintext recognition
-	} else if (!trimmedContent.includes("\t") && trimmedContent[trimmedContent.length-1] != ")") {
-	// SAFE: Plain text and SDParse should not include tabs. CG3/CoNLL-U should include tabs
-	// UNSAFE: SDParse should end the line with a ), but plain text conceivably could too
-		FORMAT = "plain text";
-	} else {
-		FORMAT = "Unknown";
-	}
+    var trimmedContent = content.trim("\n");
+    //console.log(trimmedContent + ' | ' + trimmedContent[trimmedContent.length-1]);
+    if (firstWord.match(/"<.*/)) {
+    // SAFE: The first token in the string should start with "<
+        FORMAT = "CG3";
+    } else if (firstWord.match(/1/)) {
+    // UNSAFE: The first token in the string should be 1
+        FORMAT = "CoNLL-U";
+    } else if (trimmedContent.includes("(") && trimmedContent.includes("\n") && (trimmedContent.includes(")\n") || trimmedContent[trimmedContent.length-1] == ")")) {
+    // SAFE: To be SDParse as opposed to plain text we need at least 2 lines.
+    // UNSAFE: SDParse should include at least one line ending in ) followed by a newline
+    // UNSAFE: The last character in the string should be a )
+        FORMAT = "SD";
+        // UNSAFE: The first character is an open square bracket
+        } else if (firstWord.match(/\[/)) {
+                FORMAT = "Brackets";
+    // TODO: better plaintext recognition
+    } else if (!trimmedContent.includes("\t") && trimmedContent[trimmedContent.length-1] != ")") {
+    // SAFE: Plain text and SDParse should not include tabs. CG3/CoNLL-U should include tabs
+    // UNSAFE: SDParse should end the line with a ), but plain text conceivably could too
+        FORMAT = "plain text";
+    } else {
+        FORMAT = "Unknown";
+    }
 
-	return FORMAT
+    return FORMAT
 }
 
 
@@ -574,10 +585,94 @@ function storageAvailable(type) {
     }
 }
 
+function tableEditCell(loc) { 
+    // Yes I'm sorry I don't know Jquery, I'm sure this could be done much better.
+    loc = loc.trim();
+    var table = document.getElementById("indataTable");
+    var cell = document.getElementById(loc).innerHTML;
+    console.log("tableEditCell() " + loc + " " + cell);
+
+    // Update the table with the value from the edit
+
+    // Update the CoNLL-U and set the value in the textbox 
+
+    var conllu = "";
+    
+    for (var r = 1, n = table.rows.length; r < n; r++) {
+        for (var c = 0, m = table.rows[r].cells.length; c < m; c++) {
+            var thisCell = table.rows[r].cells[c].childNodes[0].innerHTML;
+//            console.log("@" + table.rows[r].cells[c].innerHTML + " // " + thisCell);
+            if(c > 0) {
+              conllu = conllu + "\t" + thisCell;
+            } else {
+              conllu = conllu + thisCell;
+            }
+        }
+        conllu = conllu + "\n";
+    }
+    console.log("!@", conllu);
+    $("#indata").val(conllu);
+ 
+    // Draw tree 
+
+    drawTree();
+}
+
+function toggleTableView() {
+    $("#indata").toggle();
+    $("#indataTable").toggle();
+    $("#tableViewButton").toggleClass('fa-code', 'fa-table');
+    $("#indataTable tbody").empty();
+    var conlluLines = $("#indata").val().split("\n");
+    var row = 0;
+    for(let line of conlluLines) {
+        if(line.trim() == "") {
+            continue;
+        }
+        console.log(line);
+        if(line[0] == '#') { 
+            $("#indataTable tbody").append('<tr style="display:none" id="table_"' + row + '"><td colspan="10"><span>' + line + '</span></td></tr>'); 
+        } else { 
+            var lineRow = "<tr>";
+            var cells = line.split("\t");
+            for(var col = 0; col < 10; col++) {
+                var loc = "table_" + row + ":" + col;
+                lineRow = lineRow + '<td><span data-value="' + cells[col] + '" onKeyUp="tableEditCell(\''+loc+'\');" id="' + loc + '" contenteditable>' + cells[col] + '</span></td>"';
+            }
+            lineRow += "</tr>";
+            $("#indataTable tbody").append(lineRow); 
+        }
+        row += 1;
+    }
+
+//    $("#indataTable tbody").append(
+//        $("#indata").val().split("\n")
+//            .filter(line => line.length && !line.startsWith("#"))
+//            .map(rowText => $("<tr>").append(
+//                rowText.split("\t").map(cellText => $("<td>").text(cellText))
+//            ))
+//    );
+}
+
+function toggleTableColumn(col) {
+   var colTitle = {"ID":0,"FORM":1,"LEMMA":2,"UPOSTAG":3,"XPOSTAG":4,"FEATS":5,"HEAD":6,"DEPREL":7,"DEPS":8,"MISC":9};
+   var colId = colTitle[col];
+   var button = $("#tableCol_" + col).text();
+   console.log("toggleTableColumn() " + " " + col + " " + button);
+   $("#tableCol_" + col).empty();
+   if(button == "⚪") { 
+     $("#tableCol_" + col).append("⚫");
+     $("[id^=table_][id$=" + colId+"]").css("display","block");
+   } else { 
+     $("#tableCol_" + col).append("⚪");
+     $("[id^=table_][id$=" + colId+"]").css("display","none");
+   }
+}
+
 function toggleCodeWindow() {
-	$("#codeVisibleButton").toggleClass('fa-chevron-down', 'fa-chevron-up');
-	console.log('toggleCodeWindow()');
-	$("#indata").toggle('show');
+    $("#codeVisibleButton").toggleClass('fa-chevron-down', 'fa-chevron-up');
+    console.log('toggleCodeWindow()');
+    $("#indata").toggle('show');
 }
 
 function focusOut(key) {

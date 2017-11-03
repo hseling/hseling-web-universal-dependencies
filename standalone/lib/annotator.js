@@ -1,14 +1,17 @@
 "use strict"
 
 var FORMAT = "";
-var FILENAME = 'corpora.txt'; // default name
+var FILENAME = 'ud-annotatrix-corpus.conllu'; // default name
 var ROOT = './lib/';
 var CONTENTS = "";
+var TEXTAREA_ROWS_DEFAULT = 20;
 var AVAILABLESENTENCES = 0;
-var HIDDEN_CODE_WINDOW = false;
 var CURRENTSENTENCE = 0;
+var TABLE_VIEW = false;
+var TABLE_COLUMNS_HEADERS = {"ID":0,"FORM":1,"LEMMA":2,"UPOSTAG":3,"XPOSTAG":4,"FEATS":5,"HEAD":6,"DEPREL":7,"DEPS":8,"MISC":9};
+var TABLE_COLUMNS_VISIBILITY = {0:true,1:true,2:true,3:true,4:true,5:true,6:true,7:true,8:true,9:true};
 var RESULTS = [];
-var LOC_ST_AVALIABLE = false;
+var LOC_ST_AVAILABLE = false;
 var SERVER_RUNNING = false;
 var AMBIGUOUS = false;
 var LABELS = [];
@@ -19,9 +22,11 @@ function main() {
         ROOT + 'ext/jquery-3.2.1.min.js',
         ROOT + 'ext/jquery-ui-1.12.1/jquery-ui.min.js',
         ROOT + 'ext/cytoscape.min.js',
+        // ROOT + 'ext/cytoscape-panzoom.js',
         ROOT + 'ext/undomanager.js',
         ROOT + 'ext/popper.min.js',
         ROOT + 'ext/bootstrap.min.js',
+        ROOT + 'ext/l20n.js',
 
         // CoNLL-U parser from https://github.com/FrancessFractal/conllu
         ROOT + 'ext/conllu/conllu.js',
@@ -54,7 +59,7 @@ function main() {
 
         // trying to load the corpus from localStorage
         if (storageAvailable('localStorage')) {
-            LOC_ST_AVALIABLE = true;
+            LOC_ST_AVAILABLE = true;
             if (localStorage.getItem("corpus") != null) {
                 CONTENTS = localStorage.getItem("corpus");
                 loadDataInIndex();
@@ -73,8 +78,9 @@ function main() {
         // $("#indata").keyup(drawTree);
         $("#indata").bind("keyup", drawTree);
         $("#indata").bind("keyup", focusOut);
-        $("#RTL").bind("change", switchRtlMode);
-        $("#vertical").bind("change", switchAlignment);
+        // $("#RTL").bind("change", switchRtlMode);
+        $("#RTL").on("click", switchRtlMode);
+        $("#vertical").on("click", switchAlignment);
         loadFromUrl();
     });
 
@@ -102,8 +108,17 @@ function addHandlers() {
     cy.on('click', 'edge.dependency', changeNode);
     cy.on('click', 'edge.error', changeNode);
     cy.on('click', 'edge.incomplete', changeNode);
+    cy.on('zoom', changeZoom);
 }
 
+function changeZoom() {
+
+    console.log('zoom event');
+//if(event.shiftKey) {
+//    console.log('zoom event+SHIFT');
+//}
+    cy.center();
+}
 
 function loadFromUrl(argument) {
     //check if the URL contains arguments
@@ -173,13 +188,13 @@ function loadDataInIndex() {
 
     if (FORMAT == "plain text") {
         var splitted = CONTENTS.match(/[^ ].+?[.!?](?=( |$))/g);
-    } else if (FORMAT == undefined) {
-        var splitted = [];
+    // } else if (FORMAT == undefined) {
+    //     var splitted = [];
     } else {
         var splitted = CONTENTS.split("\n\n");
     }
 
-    console.log('loadDataInIndex |' + FORMAT + " | " + splitted.length)
+    // console.log('loadDataInIndex |' + FORMAT + " | " + splitted.length)
     for (var i = splitted.length - 1; i >= 0; i--) {
         if (splitted[i].trim() === "") {
             splitted.splice(i, 1);
@@ -187,6 +202,7 @@ function loadDataInIndex() {
     }
 
     AVAILABLESENTENCES = splitted.length;
+    //console.log('loadDataInIndex |' + FORMAT + " | AVAILABLESENTENCES = " + AVAILABLESENTENCES)
 
     if (AVAILABLESENTENCES == 1 || AVAILABLESENTENCES == 0) {
         document.getElementById('nextSenBtn').disabled = true;
@@ -202,14 +218,22 @@ function loadDataInIndex() {
 }
 
 function showDataIndiv() {
-    console.log('showDataIndiv()');
+    // This function is called each time the current sentence is changed to update
+    // the CoNLL-U in the textarea.
+    //console.log('showDataIndiv() ' + RESULTS.length + " // " + CURRENTSENTENCE);
+
     if(RESULTS[CURRENTSENTENCE] != undefined) {
       document.getElementById('indata').value = (RESULTS[CURRENTSENTENCE]);
     } else {
       document.getElementById('indata').value = "";
     }
-    document.getElementById('currentsen').value = (CURRENTSENTENCE+1);
+    if(AVAILABLESENTENCES != 0) {
+        document.getElementById('currentsen').value = (CURRENTSENTENCE+1);
+    } else { 
+        document.getElementById('currentsen').value = 0;
+    }
     document.getElementById('totalsen').innerHTML = AVAILABLESENTENCES;
+    updateTable(); // Update the table view at the same time 
     drawTree();
 }
 
@@ -329,11 +353,16 @@ function drawTree() {
     var content = $("#indata").val();
     // remove extra spaces at the end of lines. #89
     content = content.replace(/ +\n/, '\n');
+    if(content.split('\n').length < TEXTAREA_ROWS_DEFAULT) {
+        $("#indata").attr('rows', content.split('\n').length+1);
+    } else {
+        $("#indata").attr('rows', TEXTAREA_ROWS_DEFAULT);
+    }
     $("#indata").val(content);
     FORMAT = detectFormat(content);
 
     $("#detected").html("Detected: " + FORMAT + " format");
-    console.log('drawTree() ' + FORMAT);
+    //console.log('drawTree() ' + FORMAT);
     if (FORMAT == "CoNLL-U") {
         $("#viewOther").hide();
         $("#viewCG").removeClass("active");
@@ -389,7 +418,7 @@ function drawTree() {
         addHandlers();
     }
 
-    if (LOC_ST_AVALIABLE) {
+    if (LOC_ST_AVAILABLE) {
         localStorage.setItem("corpus", getTreebank()); // saving the data
     }
 
@@ -443,14 +472,22 @@ function detectFormat(content) {
     //TODO: too many "hacks" and presuppositions. refactor.
 
     content = content.trim();
+
+    if(content == "") {
+        console.log('[0] detectFormat() WARNING EMPTY CONTENT');
+        return  "Unknown";
+    }
+ 
     var firstWord = content.replace(/\n/g, " ").split(" ")[0];
+
+    //console.log('[0] detectFormat() ' + content.length + " | " + FORMAT);
+    //console.log('[1] detectFormat() ' + content);
 
     // handling # comments at the beginning
     if (firstWord[0] === '#'){
         var following = 1;
         while (firstWord[0] === '#' && following < content.length){
             // TODO: apparently we need to log the thing or it won't register???
-            console.log('detectFormat|while| ' + firstWord);
             firstWord = content.split("\n")[following];
             // pull out labels and put them in HTML, TODO: this probably
             // wants to go somewhere else.
@@ -477,7 +514,7 @@ function detectFormat(content) {
                         .text(LABELS[k])
                     );
                 }
-                console.log("FOUND LABELS:" + LABELS);
+                //console.log("FOUND LABELS:" + LABELS);
             }
             following ++;
         }
@@ -496,8 +533,8 @@ function detectFormat(content) {
     // UNSAFE: SDParse should include at least one line ending in ) followed by a newline
     // UNSAFE: The last character in the string should be a )
         FORMAT = "SD";
-        // UNSAFE: The first character is an open square bracket
-        } else if (firstWord.match(/\[/)) {
+    // UNSAFE: The first character is an open square bracket
+    } else if (firstWord.match(/\[/)) {
                 FORMAT = "Brackets";
     // TODO: better plaintext recognition
     } else if (!trimmedContent.includes("\t") && trimmedContent[trimmedContent.length-1] != ")") {
@@ -507,6 +544,7 @@ function detectFormat(content) {
     } else {
         FORMAT = "Unknown";
     }
+    //console.log('[3] detectFormat() ' + FORMAT);
 
     return FORMAT
 }
@@ -592,8 +630,6 @@ function tableEditCell(loc) {
     var cell = document.getElementById(loc).innerHTML;
     console.log("tableEditCell() " + loc + " " + cell);
 
-    // Update the table with the value from the edit
-
     // Update the CoNLL-U and set the value in the textbox 
 
     var conllu = "";
@@ -601,6 +637,9 @@ function tableEditCell(loc) {
     for (var r = 1, n = table.rows.length; r < n; r++) {
         for (var c = 0, m = table.rows[r].cells.length; c < m; c++) {
             var thisCell = table.rows[r].cells[c].childNodes[0].innerHTML;
+            if(thisCell.trim() == "") {
+                thisCell = "_";
+            }
 //            console.log("@" + table.rows[r].cells[c].innerHTML + " // " + thisCell);
             if(c > 0) {
               conllu = conllu + "\t" + thisCell;
@@ -619,32 +658,71 @@ function tableEditCell(loc) {
 }
 
 function toggleTableView() {
+    // This function toggles the table view
+    $("#tableViewButton").toggleClass('fa-code', 'fa-table');
     $("#indata").toggle();
     $("#indataTable").toggle();
-    $("#tableViewButton").toggleClass('fa-code', 'fa-table');
+    if(TABLE_VIEW) {
+        TABLE_VIEW = false;
+    } else { 
+        TABLE_VIEW = true;
+    }
+}
+
+function updateTable() {
+    // Update the data in the table from the data in the textarea
     $("#indataTable tbody").empty();
     var conlluLines = $("#indata").val().split("\n");
     var row = 0;
+
     for(let line of conlluLines) {
         if(line.trim() == "") {
             continue;
         }
-        console.log(line);
+        //console.log(line);
         if(line[0] == '#') { 
             $("#indataTable tbody").append('<tr style="display:none" id="table_"' + row + '"><td colspan="10"><span>' + line + '</span></td></tr>'); 
         } else { 
-            var lineRow = "<tr>";
+            var lineRow = $("<tr>");
             var cells = line.split("\t");
             for(var col = 0; col < 10; col++) {
+                var valid = [true, "", {}];
                 var loc = "table_" + row + ":" + col;
-                lineRow = lineRow + '<td><span data-value="' + cells[col] + '" onKeyUp="tableEditCell(\''+loc+'\');" id="' + loc + '" contenteditable>' + cells[col] + '</span></td>"';
+                if(cells[col].trim() == "") { 
+                    cells[col] = "_";
+                } 
+                if(cells[col] != "_") {
+                    if(col == 3) {
+                        valid = is_upos(cells[col]);
+                    }
+                    if(col == 7) {
+                        valid = is_udeprel(cells[col]);
+                    }
+                }
+
+                let td = $("<td>");
+                let span0 = $('<span data-value="' + cells[col] + '"onBlur="updateTable();" onKeyUp="tableEditCell(\''+loc+'\');" id="' + loc + '" contenteditable>' + cells[col] + '</span>');
+                td.append(span0);
+                if(!valid[0]) { 
+                    let span1 = $('<span><i class="fa fa-exclamation-triangle" aria-hidden="true"></i></span>');
+                    document.l10n.formatValue(valid[1], valid[2]).then(function(t) { span1.attr("title", t);});
+                    td.append(span1);
+                }
+                lineRow.append(td);
             }
-            lineRow += "</tr>";
             $("#indataTable tbody").append(lineRow); 
         }
         row += 1;
     }
 
+    // Make sure hidden columns stay hidden
+    // This could probably go in the for loop above
+    for(var col = 0; col < 10; col++) {
+        if(!TABLE_COLUMNS_VISIBILITY[col]) {
+            $("[id^=table_][id$=" + col+"]").css("display","none");
+        }
+    }
+// Sushain's original, more beautiful code:
 //    $("#indataTable tbody").append(
 //        $("#indata").val().split("\n")
 //            .filter(line => line.length && !line.startsWith("#"))
@@ -655,24 +733,45 @@ function toggleTableView() {
 }
 
 function toggleTableColumn(col) {
-   var colTitle = {"ID":0,"FORM":1,"LEMMA":2,"UPOSTAG":3,"XPOSTAG":4,"FEATS":5,"HEAD":6,"DEPREL":7,"DEPS":8,"MISC":9};
-   var colId = colTitle[col];
-   var button = $("#tableCol_" + col).text();
+   // Toggle the visibility of a table column. It only hides the values in the cells,
+   // not the column header. 
+   // @col = the column that was clicked
+
+   // the HTML id of the table cell is #table_<ROW>:<COLUMN>, the hash maps 
+   // from column ID to column offset
+   var colId = TABLE_COLUMNS_HEADERS[col];
+   var button = $("#tableCol_" + col).text();  // The text (e.g. dot)
+
    console.log("toggleTableColumn() " + " " + col + " " + button);
-   $("#tableCol_" + col).empty();
-   if(button == "⚪") { 
+   $("#tableCol_" + col).empty(); // Empty the text
+
+   if(button == "⚪") {  // If the column is currently hidden, make it visible
      $("#tableCol_" + col).append("⚫");
-     $("[id^=table_][id$=" + colId+"]").css("display","block");
-   } else { 
+     $("#tableHead_" + col).css("display","inline-block");
+     $("[id^=table_][id$=" + colId+"]").css("display","inline-block");
+     TABLE_COLUMNS_VISIBILITY[colId] = true;
+   } else { // If the column is visible make it hidden
      $("#tableCol_" + col).append("⚪");
+     $("#tableHead_" + col).css("display","none");
      $("[id^=table_][id$=" + colId+"]").css("display","none");
+     TABLE_COLUMNS_VISIBILITY[colId] = false;
    }
+
+   // TODO: Maybe use greying out of the headers in addition to/instead of 
+   // the filled/empty dots to indicate hidden or not
 }
 
 function toggleCodeWindow() {
     $("#codeVisibleButton").toggleClass('fa-chevron-down', 'fa-chevron-up');
-    console.log('toggleCodeWindow()');
-    $("#indata").toggle('show');
+    //console.log('toggleCodeWindow()');
+    $(".indataarea").toggle();
+    /**
+    if(TABLE_VIEW) {
+        $("#indataTable").toggle('show');
+    } else { 
+        $("#indata").toggle('show');
+    }
+    **/
 }
 
 function focusOut(key) {
@@ -681,5 +780,4 @@ function focusOut(key) {
     }
 }
 
-
-main()
+window.onload = main;

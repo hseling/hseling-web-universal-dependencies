@@ -10,6 +10,7 @@ var ENTER = 13;
 var ESC = 27;
 var RIGHT = 39;
 var LEFT = 37;
+var CURRENT_ZOOM = 1.0;
 var UP = 38;
 var DOWN = 40;
 var MINUS = 189;
@@ -256,7 +257,23 @@ function keyUpClassifier(key) {
             removeSup(st);
         }
     }
-    // console.log(key.which);
+    //console.log('KEY: ' + key.which);
+    if((key.which == 187 || event.charCode == "=") && event.shiftKey ) {
+      CURRENT_ZOOM = cy.zoom();
+      console.log('KEY: ' + key.which);
+      CURRENT_ZOOM += 0.1;
+      console.log('ZOOM: ', CURRENT_ZOOM);
+      cy.zoom(CURRENT_ZOOM);
+    } else if((key.which == 187 || event.charCode == "=") && !event.shiftKey) {
+      cy.zoom(1.0);
+      CURRENT_ZOOM = cy.zoom();
+    } else if((key.which == 189 || event.charCode == "-")  && event.shiftKey) {
+      CURRENT_ZOOM = cy.zoom();
+      console.log('KEY: ' + key.which);
+      CURRENT_ZOOM -= 0.1;
+      console.log('ZOOM: ', CURRENT_ZOOM);
+      cy.zoom(CURRENT_ZOOM);
+    }
 
 }
 
@@ -316,8 +333,7 @@ function changeNode() {
     if (VERT_ALIGNMENT) {
         $(".activated#mute").css("height", (length * 50) + "px");
     } else {
-        var width = getWidth(length);
-        $(".activated#mute").css("width", width + "px");
+        $(".activated#mute").css("width", "1500px");
     }
 
     // TODO: rank the labels + make the style better  
@@ -655,8 +671,8 @@ function buildSent() {
 
 
 function redrawTree(sent) {
-    /* Takes a Sentence object. Writes it to the textbox and calls
-    the function drawing the tree. */
+    // Takes a Sentence object. Writes it to the textbox and calls
+    // the function drawing the tree and updating the table
     var changedSent = sent.serial;
 
     // detecting which format was used
@@ -667,6 +683,7 @@ function redrawTree(sent) {
     }
 
     $("#indata").val(changedSent);
+    updateTable();
     drawTree(); 
 }
 
@@ -757,24 +774,25 @@ function clearWarning() {
 
 
 function switchRtlMode() {
-    if (this.checked) {
+	$('#RTL .fa').toggleClass('fa-align-right');
+	$('#RTL .fa').toggleClass('fa-align-left');
+	 if (LEFT_TO_RIGHT) {
         LEFT_TO_RIGHT = false;
-        drawTree();
     } else {
         LEFT_TO_RIGHT = true;
-        drawTree();
     }
+    drawTree();
 }
 
 
 function switchAlignment() {
-    if (this.checked) {
-        VERT_ALIGNMENT = true;
-        drawTree();
-    } else {
+	$('#vertical .fa').toggleClass('fa-rotate-90');
+    if (VERT_ALIGNMENT) {
         VERT_ALIGNMENT = false;
-        drawTree();
+    } else {
+        VERT_ALIGNMENT = true;
     }
+    drawTree();
 }
 
 $(document).ready(function(){
@@ -792,7 +810,25 @@ $(document).ready(function(){
 		}
 	});
 
-	$('#helpModal').on('show.bs.modal', console.log);
+	// solution based on https://stackoverflow.com/a/12444641/5181692
+	var map = {}; // You could also use an array
+	onkeydown = onkeyup = function(e){
+		e = e || event; // to deal with IE
+		map[e.key] = e.type == 'keydown';
+		/* insert conditional here */
+		if(map["Shift"] && map["PageDown"]){
+			nextSenSent();
+			map = [];
+			map["Shift"] = true; // leave Shift so that another event can be fired
+		}else if(map["Shift"] && map["PageUp"]){
+			prevSenSent();
+			map = [];
+			map["Shift"] = true; // leave Shift so that another event can be fired
+		}
+		//return false;  // only needed if want to override all the shortcuts
+	}
+
+		$('#helpModal').on('show.bs.modal', console.log);
 
 	$('#helpModal').on('shown.bs.modal', function(e) {
 		//alert('HARGLE BARGLE');

@@ -7,9 +7,23 @@ var U_POS = ["ADJ", "ADP", "ADV", "AUX", "CCONJ", "DET", "INTJ", "NOUN", "NUM", 
 // circumstances, e.g. and / or 
 var U_POS_LEAF = ["ADP", "AUX", "CCONJ", "PART", "PUNCT", "SCONJ"];
 
+function is_upos(s) {
+    // Checks if a relation is in the list of valid parts of speech
+    // @s = the input relation
+    // returns a tuple of [bool, message]
+    for(var i = 0; i < U_POS.length; i++) {
+      if(U_POS[i] == s) { 
+        return [true, "", {}];
+      }
+    }
+    return [false, "err_upos_invalid", {"tag": s}];    
+}
+
+
 function is_udeprel(s) {
     // Checks if a relation is in the list of valid relations
     // @s = the input relation
+    // returns a tuple of [bool, message]
     var s_deprel = s;
     // Language specific relations are a universal relation + : + some string
     if(s.search(":") >= 0) {
@@ -18,10 +32,10 @@ function is_udeprel(s) {
     // Check if the deprel is in the list of valid relations
     for(var i = 0; i < U_DEPRELS.length; i++) {
       if(U_DEPRELS[i] == s_deprel) { 
-        return true;
+        return [true, "", {}];
       }
     }
-    return false;    
+    return [false, "err_udeprel_invalid", {"label": s}];
 }
 
 function is_leaf(s) {
@@ -30,16 +44,25 @@ function is_leaf(s) {
     // @s = part of speech tag
     for(var i = 0; i < U_POS_LEAF.length; i++) {
       if(U_POS_LEAF[i] == s) { 
-        return true;
+        return [true, "", {}];
       }
     }
-    return false;    
+    return [false, "err_udep_leaf_node", {"tag": s}];  
 
 }
 
 function is_cyclic(tree) {
     // Checks if a given tree is cyclic 
+    // Questions: (1) do we want to deal with partial trees ? 
     // @tree = input tree
+    //console.log('is_cyclic() ' + tree);
 
-    return false;
+    // Let's do a DFS for each of the valid nodes in the tree,
+
+    for(let node in tree){ 
+        var visited = {};
+        //console.log('| ' + tree[node].id + ' -> ' + tree[node].head);
+    }
+
+    return [false, "", {}];
 }

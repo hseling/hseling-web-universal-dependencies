@@ -11,8 +11,17 @@ var LOW_DIGITS = {0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅",
 6: "₆", 7: "₇", 8: "₈", 9: "₉", "-": "₋", "(" : "₍", ")" : "₎"};
 var TREE_ = {}; // This map allows us to address the Token object given an ID
 
+var edgeHeight = 50;
+var defaultCoef = 1; // 0.7
+
+
 // require lib for CoNLL-U parsing
 var conllu = require("conllu");
+
+// var panzoom = require('cytoscape-panzoom');
+// panzoom(cytoscape);
+
+
 
 function conlluDraw(content) {
     /* Draw the tree. */
@@ -20,7 +29,7 @@ function conlluDraw(content) {
     sent.serial = content;
     changeBoxSize(sent);
     changeEdgeStyle();
-    var layout = formLayout();
+    var layout = formLayout(); // This is the thing that lays out nodes on the grid
 
     var cy = window.cy = cytoscape({
         container: document.getElementById("cy"),
@@ -28,42 +37,46 @@ function conlluDraw(content) {
         boxSelectionEnabled: false,
         autounselectify: true,
         autoungrabify: true,
+        zoomingEnabled: true,
         userZoomingEnabled: false,
+        wheelSensitivity: 0.1,
         layout: layout, 
         style: CY_STYLE,
         elements: conllu2cy(sent)
     });
+
+//    if(content.split('\n').length > 10) {
+        cleanEdges(); 
+//    }
+
+    cy.minZoom(0.5);
+    cy.maxZoom(2.0);
+    cy.center();
+
 }
 
 
 function changeBoxSize(sent) {
+    // Changes the size of the cytoscape viewport
     var length = sent.tokens.length;
     if (VERT_ALIGNMENT) {
-        $("#cy").css("width", "1500px");
+        //$("#cy").css("width", "1500px");
+        $("#cy").css("width", $(window).width()-10);
         $("#cy").css("height", (length * 50) + "px");
     } else {
-        var width = getWidth(length); 
-        $("#cy").css("width", width + "px");
+        //$("#cy").css("width", "1500px");
+        $("#cy").css("width", $(window).width()-10);
         $("#cy").css("height", "400px");
     }
 }
 
 
-function getWidth(length) {
-    var minWidth = 500;
-    var maxWidth = 1500;
-    var width = length * 200;
-    if (width < minWidth) {
-        width = minWidth;
-    } else if (width > maxWidth) {
-        width = maxWidth;
-    }
-    return width;
-}
-
-
 function formLayout() {
-    var layout = {name: "grid", condense: true};
+    //  Layout nodes on a grid, condense means 
+    var layout = {name: "tree", 
+                    padding: 0, 
+                    nodeDimensionsIncludeLabels: false
+    };
     if (VERT_ALIGNMENT) {
         layout.cols = 2;
         layout.sort = vertAlSort;
@@ -153,7 +166,7 @@ function toSubscript(str) {
 
 
 function createToken(graph, token, spId) {
-    console.log('createToken() '+spId + ' / ' + token.form + ' / ' + token.upostag);
+    //console.log('createToken() '+ token.id + ' / ' + spId + ' / ' + token.form + ' / ' + token.upostag);
     /* Takes the tree graph, a token object and the id of the supertoken.
     Creates the wf node, the POS node and dependencies. Returns the graph. */
 
@@ -170,7 +183,8 @@ function createToken(graph, token, spId) {
     graph.push({
         "data": {
             "id": "num" + nodeId,
-            "label": +nodeId,
+            "label": +nodeId,         // do we need the '+' here ?
+            "pos": +token.upostag,
             "parent": spId
         },
         "classes": "tokenNumber"
@@ -179,6 +193,9 @@ function createToken(graph, token, spId) {
     var nodeWF = token;
     // nodeWF.parent = spId;
     nodeWF.length = nodeWF.form.length + "em";
+    if(nodeWF.form.length > 3) {
+      nodeWF.length = nodeWF.form.length*0.7 + "em";
+    }
     nodeWF.id = "nf" + nodeId;
     nodeWF.label = nodeWF.form;
     nodeWF.state = "normal";
@@ -193,81 +210,85 @@ function createToken(graph, token, spId) {
 
 
 function makeDependencies(token, nodeId, graph) {
-    /* if there is head, create an edge for dependency */
-    var deprel = (token.deprel) ? token.deprel : "";
-    var head = token.head; // The id of the head
+	/* if there is head, create an edge for dependency */
+	var deprel = (token.deprel) ? token.deprel : "";
+	var head = token.head; // The id of the head
 
-    var validDep = true;
+	var validDep = true;
 
-//    console.log(TREE_);
-//    console.log(TREE_[head]);
+	//console.log(TREE_);
+//	console.log(TREE_[head]);
 
-    if(head in TREE_) { // for some reason we need this part
-      // if the pos tag of the head is in the list of leaf nodes, then
-      // mark it as an error.
-      if(is_leaf(TREE_[head].upostag)) {
-        console.log('[1] writeDeprel @valid=false ' + deprel);
-        validDep = false;
-      }
-    }
+	if(head in TREE_) { // for some reason we need this part
+		// if the pos tag of the head is in the list of leaf nodes, then
+		// mark it as an error.
+		var res = is_leaf(TREE_[head].upostag);
+		if(res[0]) {
+			console.log('[1] writeDeprel @valid=false ' + deprel + ' // ' + res[1]);
+			validDep = false;
+		}
+	}
 
-    if(!is_udeprel(deprel) && deprel != "") {
-      // if the deprel is not valid, mark it as an error, but 
-      // don't mark it as an error if it's blank. TODO: mark 
-      // arcs in grey if the deprel is blank.
-      console.log('[2] writeDeprel @valid=false ' + deprel);
-      validDep = false;
-    }
+	if(deprel != "") { 
+		var res = is_udeprel(deprel);
+		if(!res[0]) {
+			// if the deprel is not valid, mark it as an error, but 
+			// don't mark it as an error if it's blank. 
+			console.log('[2] writeDeprel @valid=false ' + deprel + ' // ' + res[1]);
+			validDep = false;
+		}
+	}
 
-    // Append ⊲ or ⊳ to indicate direction of the arc (helpful if 
-    // there are many arcs.
-    var deprelLabel = deprel;
-    if(parseInt(head) < parseInt(nodeId) && LEFT_TO_RIGHT) {
-      deprelLabel = deprelLabel + '⊳';
-    } else if(parseInt(head) > parseInt(nodeId) && LEFT_TO_RIGHT) {
-      deprelLabel = '⊲' + deprelLabel;
-    } else if(parseInt(head) < parseInt(nodeId) && !LEFT_TO_RIGHT) {
-      deprelLabel = '⊲' + deprelLabel;
-    } else if(parseInt(head) > parseInt(nodeId) && !LEFT_TO_RIGHT) {
-      deprelLabel = deprelLabel + '⊳';
-    }
+	// Append ⊲ or ⊳ to indicate direction of the arc (helpful if 
+	// there are many arcs.
+	var deprelLabel = deprel;
+	if(parseInt(head) < parseInt(nodeId) && LEFT_TO_RIGHT) {
+		deprelLabel = deprelLabel + '⊳';
+	} else if(parseInt(head) > parseInt(nodeId) && LEFT_TO_RIGHT) {
+		deprelLabel = '⊲' + deprelLabel;
+	} else if(parseInt(head) < parseInt(nodeId) && !LEFT_TO_RIGHT) {
+		deprelLabel = '⊲' + deprelLabel;
+	} else if(parseInt(head) > parseInt(nodeId) && !LEFT_TO_RIGHT) {
+		deprelLabel = deprelLabel + '⊳';
+	}
 
-    if (token.head && token.head != 0) {
-        var headId = strWithZero(head);
-        var edgeDep = {
-            "id": "ed" + nodeId,
-            "source": "nf" + headId,
-            "target": "nf" + nodeId,
-            "length": (deprelLabel.length / 3) + "em",
-            "label": deprelLabel,
-            "ctrl": [55, 55, 55, 55]
-        }
-        var coef = (head - nodeId);
-        if (!LEFT_TO_RIGHT) {coef *= -1}; // support for RTL
-        if (VERT_ALIGNMENT) {edgeDep.ctrl = [90, 90, 90, 90]};
-        if (Math.abs(coef) != 1) {coef *= 0.7};
-        edgeDep.ctrl = edgeDep.ctrl.map(function(el){ return el*coef; });
-        // if it's not valid, mark it as an error (see cy-style.js)
-        if(validDep && deprel != "" && deprel != undefined) {
-          graph.push({"data": edgeDep, "classes": "dependency"});
-          console.log("makeDependencies(): valid @" + deprel);
-        } else if (deprel == "" || deprel == undefined) {
-          graph.push({"data": edgeDep, "classes": "dependency, incomplete"});
-          console.log("makeDependencies(): incomplete @" + deprel);
-        }else{
-          graph.push({"data": edgeDep, "classes": "dependency, error"});
-          console.log("makeDependencies(): error @" + deprel);
-        }
-        
-    };
+	if (token.head && token.head != 0) {
+		var headId = strWithZero(head);
+		var edgeDep = {
+			"id": "ed" + nodeId,
+			"source": "nf" + headId,
+			"target": "nf" + nodeId,
+			"length": (deprelLabel.length / 3) + "em",
+			"label": deprelLabel,
+			"ctrl": [edgeHeight, edgeHeight, edgeHeight, edgeHeight] // ARC HEIGHT STUFFS
+		}
+		var coef = (head - nodeId);
+		if (!LEFT_TO_RIGHT) {coef *= -1}; // support for RTL
+		if (VERT_ALIGNMENT) {edgeDep.ctrl = [90, 90, 90, 90]};
+		if (Math.abs(coef) != 1) {coef *= defaultCoef};
+		edgeDep.ctrl = edgeDep.ctrl.map(function(el){ return el*coef; });
+		// if it's not valid, mark it as an error (see cy-style.js)
+		if(validDep && deprel != "" && deprel != undefined) {
+			graph.push({"data": edgeDep, "classes": "dependency"});
+			//console.log("makeDependencies(): valid @" + deprel);
+		} else if (deprel == "" || deprel == undefined) {
+			graph.push({"data": edgeDep, "classes": "dependency, incomplete"});
+			//console.log("makeDependencies(): incomplete @" + deprel);
+		}else{
+			graph.push({"data": edgeDep, "classes": "dependency, error"});
+			//console.log("makeDependencies(): error @" + deprel);
+		}
 
-//    if(is_cyclic(TREE_)) {
-//        console.log('[3] writeDeprel is_cyclic=true');
-//    }
-
-    return graph;
+		var res = is_cyclic(TREE_);
+		if(!res[0]) {
+			//console.log('[3] writeDeprel is_cyclic=true');
+		} else {
+			//console.log('[3] writeDeprel is_cyclic=false');
+		}
+		//console.log(edgeDep);
+	};
+	return graph;
 }
-
 
 function makePOS(token, nodeId, graph) {
     /* Creates nodes for POS and edges between wf and POS nodes */
@@ -299,6 +320,103 @@ function makePOS(token, nodeId, graph) {
 }
 
 
+/**
+ * Creates a range of numbers in an array, starting at a specified number and
+ * ending before a different specified number.
+ */
+function range(start, finish, step) {
+	// If only one number was passed in make it the finish and 0 the start.
+	if (arguments.length == 1) {
+		finish = start;
+		start = 0;
+	}
+	
+	// Validate the finish and step numbers.
+	finish = finish || 0;
+	step = step || 1;
+
+	// If start is mroe than finish, reverse.
+	if (start > finish) {
+		var temp = start;
+		start = finish;
+		finish = temp;
+	}
+
+	// Create the array of numbers, stopping before the finish.
+	for (var ret = []; (finish - start) * step > 0; start += step) {
+		ret.push(start);
+	}
+	return ret;
+}
+
+function cleanEdges() {
+	var sources = {}
+	var edges = {}
+	$.each(cy.filter('edge[id*="ed"]'), function (a, thisEdge) {
+		if (thisEdge.data('source') != thisEdge.data('target')) {
+			//console.log(thisEdge);
+			var sourceNode = thisEdge.data('source').replace("nf","");
+			var targetNode = thisEdge.data('target').replace("nf","");
+			sources[targetNode] = sourceNode;
+			edges[targetNode] = thisEdge;
+			//var diff = Math.abs(sourceNode - targetNode);
+			//console.log(thisEdge.data(), sourceNode, targetNode);
+			//		 (thisEdge.data(), thisEdge.data('source').replace("nf",""), thisEdge.data('target').replace("nf",""));
+			//thisEdge.data({'ctrl': [thisHeight, thisHeight, thisHeight, thisHeight]});
+		}
+	});
+
+	// calculate max heights
+	var maxes = {}
+	$.each(edges, function (targetNode, thisEdge) {
+		var howHigh = 1;
+		var diff = Math.abs(targetNode - sources[targetNode]);
+		//console.log(diff);
+		maxes[parseInt(targetNode)] = diff;
+	});
+	console.log(maxes);
+
+	// set height to max intervening height + 1
+	$.each(edges, function (targetNode, thisEdge) {
+		var sourceNode = sources[targetNode] ;
+		var targ = parseInt(targetNode)
+		var sorc = parseInt(sourceNode)
+		var diff = Math.abs(targ - sorc);
+		var howHigh = 1;
+		var increment = -1 ;
+		if (targetNode<sourceNode) { increment = 1; } // else { increment = -1 };
+		if (diff > 1) {
+			var maxFound = 1;
+			var toCheck = range(targ+increment, sorc, Math.abs(increment));
+			console.log(maxes);
+			console.log("BEFORE LOOP", targ, sorc, toCheck, range(7, 3, 1));
+			$.each(toCheck, function(x, i) {
+				if (maxes[i] > maxFound) {
+					maxFound = maxes[i];
+				}
+				console.log(targ, sorc, i, maxFound);
+			});
+			maxes[targetNode] = maxFound;
+			//console.log("BEFORE LOOP", targ, sorc, increment, targ+increment, sorc-increment);
+			/**for (i=targ+increment; i=sorc-increment; i+=increment) {
+				console.log(targ, i, maxFound);
+				if (maxes[i] > maxFound) {
+					maxFound = maxes[i];
+				}
+			}**/
+			howHigh = maxFound +1;
+			console.log(targetNode, howHigh, "—", maxes);
+		}
+		if (!LEFT_TO_RIGHT) {var RTL = -1} else {var RTL = 1}; // support for RTL
+		var thisHeight = 5+edgeHeight * defaultCoef * howHigh * increment * RTL;
+		//console.log("HARGLE "+thisHeight);
+		thisEdge.data({'ctrl': [thisHeight, thisHeight, thisHeight, thisHeight]});
+
+	});
+	//console.log(sources);
+	//cy.filter('edge[id="ed12"]').data({'ctrl': [thisHeight, thisHeight, thisHeight, thisHeight]});
+	//cy.filter('edge[id="ed12"]').data({'ctrl': [34,50,40,20]}); //.ctrl = [50,34,34,40]); //graph.filter('edge[id="n12"]');//, TREE_);
+}
 function simpleIdSorting(n1, n2) {
     if( n1.id() < n2.id() ){
         return -1;

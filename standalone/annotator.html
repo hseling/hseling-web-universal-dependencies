@@ -10,6 +10,24 @@
 	<link rel="stylesheet" href="./lib/ext/bootstrap.min.css" />
 	<link rel="stylesheet" type="text/css" href="./lib/ext/font-awesome-4.7.0/css/font-awesome.min.css" />
 	<link rel="stylesheet" type="text/css" href="./lib/css/style.css" />
+
+	<meta name="defaultLanguage" content="eng">
+	<meta name="availableLanguages" content="eng, cat">
+	<script type="text/fluent" lang="cat">
+err_upos_invalid = No es troba « { $tag } » a la llista d'etiquetes universals de categoria lèxica.
+
+err_udeprel_invalid = No es troba « { $label } » a la llista de relacions universals.
+
+err_udep_leaf_node = Els nodes amb l'etiqueta « { $tag } » normalment no hauríen de portar dependents.
+        </script>
+        <script type="text/fluent" lang="eng">
+err_upos_invalid = « { $tag } » is not in the list of Universal part-of-speech tags.
+
+err_udeprel_invalid = « { $label } » is not in the list of Universal dependency relations.
+
+err_udep_leaf_node = Nodes with the « { $tag } » part-of-speech tag should normally not have dependents.
+        </script>
+	<script defer src="./lib/ext/l20n.js"></script>
 </head>
 
 <body>
@@ -150,76 +168,94 @@
 						</a>
 					</div>
 				</div>
-				<div class="tabContainer col-xs-5 ml-auto">
-					<div class="nav nav-tabs">
-						<li class="nav-item">
-							<a href="#" class="nav-link" id="viewOther"></a>
-						</li>
-						<li class="nav-item">
-							<a href="#" class="nav-link active" id="viewConllu" onClick="javascript:viewAsConllu();">CoNLL-U</a>
-						</li>
-						<li class="nav-item">
-							<a href="#" class="nav-link" id="viewCG" onClick="javascript:viewAsCG();">CG3</a>
-						</li>
-					</div>
+				<div class="tabContainer col-xs-5 ml-auto corpusNavigation" role="toolbar">
+					<a class="btn btn-secondary" href="#" onClick="javascript: toggleCodeWindow();">
+						<i id="codeVisibleButton" class="fa fa-chevron-up" title="Show/hide text area"></i>
+					</a>
 				</div>
-
 			</div>
+
+
 			<!-- div class="viewoptions">
 				<button role="tab" id="viewConllu" class="selected" onClick="javascript:viewAsConllu();">as CoNLL-U</button>
 				<button role="tab" id="viewCG" onClick="javascript:viewAsCG();">as CG</button>
 				<button role="tab" id="remove" onClick="javascript:removeCurSent();">Remove sentence</button>
 			</div -->
 			<div class="indataarea" style="position: relative">
-				<div class="btn-toolbar col-xs-1" role="toolbar" style="position: absolute; right: 0; top: 0;">
-					<a class="btn btn-secondary" href="#" onClick="javascript: toggleCodeWindow();">
-						<i id="codeVisibleButton" class="fa fa-chevron-up" title="Show/hide"></i>
-					</a>
-					<a class="btn btn-secondary" href="#" onClick="javascript: toggleTableView();">
-						<i id="tableViewButton" class="fa fa-table" title="Table view"></i>
-					</a>
-				</div>
+				<div class="row" style="padding-top: none">
+					<div class="tabContainer col-xs-1 corpusNavigation" style="float: left" role="toolbar">
+						<a class="btn btn-secondary" href="#" onClick="javascript: toggleTableView();">
+							<i id="tableViewButton" class="fa fa-table" title="Table view"></i>
+						</a>
+					</div>
 
+					<div class="btn-toolbar col-xs-6 ml-auto" style="float: right;" role="toolbar">
+						<div class="tabContainer col-xs-5 ml-auto">
+							<div class="nav nav-tabs">
+								<li class="nav-item">
+									<a href="#" class="nav-link" id="viewOther"></a>
+								</li>
+								<li class="nav-item">
+									<a href="#" class="nav-link active" id="viewConllu" onClick="javascript:viewAsConllu();">CoNLL-U</a>
+								</li>
+								<li class="nav-item">
+									<a href="#" class="nav-link" id="viewCG" onClick="javascript:viewAsCG();">CG3</a>
+								</li>
+							</div>
+						</div>
+					</div>
+				</div>
 				<textarea id="indata" class="w-100" style="font-size: 85%" rows="20"></textarea>
-				<table id="indataTable" class="table table-bordered table-sm table-hover w-100" style="display: none;">
+                                <div style="overflow:auto; resize:both;">
+				<table id="indataTable" class="table table-bordered table-sm table-hover w-100" style="width:100%; display: none;">
 					<thead class="thead-default">
 						<tr>
-							<th>ID<span id="tableCol_ID"></span></th>
-							<th>FORM<span id="tableCol_FORM"></span></th>
-							<th>LEMMA<span id="tableCol_LEMMA" onClick="javascript: toggleTableColumn('LEMMA');">⚫</span></th>
-							<th>UPOSTAG<span id="tableCol_UPOSTAG" onClick="javascript: toggleTableColumn('UPOSTAG');">⚫</span></th>
-							<th>XPOSTAG<span id="tableCol_XPOSTAG" onClick="javascript: toggleTableColumn('XPOSTAG');">⚫</span></th>
-							<th>FEATS<span id="tableCol_FEATS" onClick="javascript: toggleTableColumn('FEATS');">⚫</span></th>
-							<th>HEAD<span id="tableCol_HEAD" onClick="javascript: toggleTableColumn('HEAD');">⚫</span></th>
-							<th>DEPREL<span id="tableCol_DEPREL" onClick="javascript: toggleTableColumn('DEPREL');">⚫</span></th>
-							<th>DEPS<span id="tableCol_DEPS" onClick="javascript: toggleTableColumn('DEPS');">⚫</span></th>
-							<th>MISC<span id="tableCol_MISC" onClick="javascript: toggleTableColumn('MISC');">⚫</span></th>
+                                                        <th><span id="tableCol_ID"></span><span id="tableHead_ID">ID</span></th>
+                                                        <th><span id="tableCol_FORM"></span><span id="tableHead_FORM">FORM</span></th>
+                                                        <th><span id="tableCol_LEMMA" title="LEMMA" onClick="javascript: toggleTableColumn('LEMMA');">⚫</span><span id="tableHead_LEMMA">LEMMA</span></th>
+                                                        <th><span id="tableCol_UPOSTAG" title="UPOSTAG" onClick="javascript: toggleTableColumn('UPOSTAG');">⚫</span><span id="tableHead_UPOSTAG">UPOSTAG</span></th>
+                                                        <th><span id="tableCol_XPOSTAG" title="XPOSTAG" onClick="javascript: toggleTableColumn('XPOSTAG');">⚫</span><span id="tableHead_XPOSTAG">XPOSTAG</span></th>
+                                                        <th><span id="tableCol_FEATS" title="FEATS" onClick="javascript: toggleTableColumn('FEATS');">⚫</span><span id="tableHead_FEATS">FEATS</span></th>
+                                                        <th><span id="tableCol_HEAD" title="HEAD" onClick="javascript: toggleTableColumn('HEAD');">⚫</span><span id="tableHead_HEAD">HEAD</span></th>
+                                                        <th><span id="tableCol_DEPREL" title="DEPREL" onClick="javascript: toggleTableColumn('DEPREL');">⚫</span><span id="tableHead_DEPREL">DEPREL</span></th>
+                                                        <th><span id="tableCol_DEPS" title="DEPS" onClick="javascript: toggleTableColumn('DEPS');">⚫</span><span id="tableHead_DEPS">DEPS</span></th>
+                                                        <th><span id="tableCol_MISC" title="MISC" onClick="javascript: toggleTableColumn('MISC');">⚫</span><span id="tableHead_MISC">MISC</span></th>
+
 						</tr>
 					</thead>
 					<tbody></tbody>
 				</table>
+				</div>
 			</div>
 		</div>
 
 		<div class="controls">
 
-        <div style="float:right">
+		<div style="float: right;">
+			<div class="btn-group ml-sx-auto">
+				<button id="RTL" type="button" class="btn btn-outline-primary" data-toggle="button" aria-pressed="false" autocomplete="off">
+					<!-- when fa-align-right is set as default, the button shows the mode to switch to; if fa-align-left, then it shows the current mode -->
+					<i class="fa fa-align-right" title="Toggle right-to-left / left-to-right"></i>
+				</button>
+				<button id="vertical" type="button" class="btn btn-outline-primary" data-toggle="button" aria-pressed="false" autocomplete="off">
+					<!-- when fa-rotate-90 is set as default, the button shows the mode to switch to; without it, then it shows the current mode -->
+					<i class="fa fa-align-justify fa-rotate-90" title="Toggle vertical / horizontal display"></i>
+				</button>
+			</div>
+	          <!--p>
+	              <input type="checkbox" id="RTL" name="RTL">
+	              <label for="RTL">Enable RTL</label>
+	              <input type="checkbox" id="vertical" name="RTL">
+	              <label for="vertical">Enable vertical alignment</label>
+	          </p--><p>
+			<div id="treeLabels"/></p> <!-- This needs better positioning -->
+		</div>
 
-          <p>
-              <input type="checkbox" id="RTL" name="RTL">
-              <label for="RTL">Enable RTL</label>
-              <input type="checkbox" id="vertical" name="RTL">
-              <label for="vertical">Enable vertical alignment</label>
-          </p><p>
-            <div id="treeLabels"/></p> <!-- This needs better positioning -->
-        </div>
-
-      </div>
-      <div class="graph"> <!-- Graph -->
-        <div id="cy"></div>
-      </div>
-
-    </div>
+		</div>
+			<div class="graph"> <!-- Graph -->
+			<div id="cy"></div>
+		</div>
+	</div>
 
     <!-- support for embedded visualizations -->
     <script type="text/javascript" src="./lib/annotator.js"></script>

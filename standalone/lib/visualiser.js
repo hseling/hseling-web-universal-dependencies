@@ -7,12 +7,14 @@ var NORMAL = "#7fa2ff";
 var FANCY = "#cc22fc";
 var POS_COLOR = "#afa2ff";
 var ST_COLOR = "#bcd2ff"
+var SCROLL_ZOOM_INCREMENT = 0.05;
 var LOW_DIGITS = {0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅",
 6: "₆", 7: "₇", 8: "₈", 9: "₉", "-": "₋", "(" : "₍", ")" : "₎"};
 var TREE_ = {}; // This map allows us to address the Token object given an ID
 
-var edgeHeight = 50;
+var edgeHeight = 40;
 var defaultCoef = 1; // 0.7
+var staggersize = 15;
 
 
 // require lib for CoNLL-U parsing
@@ -46,16 +48,71 @@ function conlluDraw(content) {
     });
 
 //    if(content.split('\n').length > 10) {
-//        cleanEdges(); 
+//          if(!VIEW_ENHANCED){ 
+              cleanEdges(); 
+//          }
 //    }
 
     cy.minZoom(0.1);
     cy.maxZoom(10.0);
-    cy.fit(2);
-    cy.center();
 
+    // Fit the graph to the window size
+    CURRENT_ZOOM = cy.zoom(); // Get the current zoom factor.
+    // console.log('[0] CURRENT_ZOOM:', CURRENT_ZOOM);
+    cy.fit();
+    // console.log('[1] CURRENT_ZOOM:', CURRENT_ZOOM);
+    CURRENT_ZOOM = cy.zoom(); // Get the current zoom factor.
+    // console.log('[2] CURRENT_ZOOM:', CURRENT_ZOOM);
+    if(CURRENT_ZOOM >= 1.7) { // If the current zoom factor is more than 1.7, then set it to 1.7
+      CURRENT_ZOOM = 1.7;           // This is to make sure that small trees don't appear massive.
+    } else if (CURRENT_ZOOM <= 0.7) {
+      CURRENT_ZOOM = 0.7;
+    }
+    // console.log('[3] CURRENT_ZOOM:', CURRENT_ZOOM);
+    cy.zoom(CURRENT_ZOOM);
+    // console.log('[4] CURRENT_ZOOM:', CURRENT_ZOOM);
+    cy.center(); 
+    $(window).bind('resize', onResize);
+    $(window).bind('DOMMouseScroll wheel', onScroll);
 }
 
+function onResize(e) {
+    CURRENT_ZOOM = cy.zoom(); // Get the current zoom factor.
+    console.log('< resize event', CURRENT_ZOOM, cy.width(), cy.height());
+    console.log('[6] CURRENT_ZOOM:', CURRENT_ZOOM);
+    cy.fit();
+    cy.resize();
+    cy.reset();
+    
+    CURRENT_ZOOM = cy.zoom(); // Get the current zoom factor.
+//    cy.center();
+//    CURRENT_ZOOM = cy.zoom();
+    console.log('[7] CURRENT_ZOOM:', CURRENT_ZOOM);
+    console.log('> resize event', CURRENT_ZOOM, cy.width(), cy.height());
+}
+
+function onScroll(event) {
+    
+    if(event.shiftKey) {
+      // console.log('SHIFT SCROLL', event.shiftKey, event.originalEvent.wheelDelta, event.originalEvent.detail, event.originalEvent.deltaY);
+      if(event.originalEvent.wheelDelta > 0 || event.originalEvent.detail < 0 || event.originalEvent.deltaY < 0) { // up
+          //console.log('SHIFT SCROLL', event.shiftKey, 'UP', CURRENT_ZOOM);
+          CURRENT_ZOOM += SCROLL_ZOOM_INCREMENT; 
+          cy.zoom(CURRENT_ZOOM);
+          cy.center();
+      } else { //down
+          //console.log('SHIFT SCROLL', event.shiftKey, 'DOWN', CURRENT_ZOOM);
+          CURRENT_ZOOM -= SCROLL_ZOOM_INCREMENT; 
+          cy.zoom(CURRENT_ZOOM);
+          cy.center();
+      }
+      return false;
+    }
+
+    //} else {
+    //  console.log('SCROLL', event.shiftKey);
+    //  return;
+}
 
 function changeBoxSize(sent) {
     // Changes the size of the cytoscape viewport
@@ -134,10 +191,25 @@ function conllu2cy(sent) {
             $.each(token.tokens, function(n, subTok) {
                 graph = createToken(graph, subTok, spId);
             });
+
         } else {
             graph = createToken(graph, token);
         }
     })
+
+    if(VIEW_ENHANCED) {
+    $.each(sent.tokens, function(n, token) {
+        console.log('VIEW_ENHANCED');
+        var enhancedDepsCol = token.deps.split('|');
+        for(var i = 0; i < enhancedDepsCol.length; i++) {
+            var enhancedRow = enhancedDepsCol[i].split(':');
+            var enhancedHead = parseInt(enhancedRow[0]);
+            var enhancedDeprel = enhancedRow.slice(1).join();
+    var nodeId = token.id;
+            graph = makeEnhancedDependency(token, nodeId, enhancedHead, enhancedDeprel, graph);
+        }
+    })
+    }
 
     return graph;
 }
@@ -202,13 +274,52 @@ function createToken(graph, token, spId) {
     nodeWF.state = "normal";
 
     nodeWF.parent = "num" + nodeId;
-    graph.push({"data": nodeWF, "classes": "wf"});
+    if (token.head && token.head == 0 ) { // for root node
+        var rootNode = " root";
+    } else {
+        var rootNode = "";
+    }
+
+    graph.push({"data": nodeWF, "classes": "wf"+rootNode});
 
     graph = makePOS(token, nodeId, graph);
-    graph = makeDependencies(token, nodeId, graph);
+
+    if(!VIEW_ENHANCED) {
+        graph = makeDependencies(token, nodeId, graph);
+    }
+ 
+
     return graph;
 }
 
+function makeEnhancedDependency(token, nodeId, head, deprel, graph) {
+    console.log('makeEnhancedDependencies()', nodeId, head, deprel);
+    console.log('makeEnhancedDependencies()', token);
+
+    var nId = parseInt(nodeId.slice(2));
+    if (head != 0) {
+	var headId = strWithZero(head);
+        var edgeDep = {
+            "id": "ed" + nodeId + ":" + headId,
+            "source": "nf" + headId,
+            //"target": "nf" + nodeId,
+            "target": nodeId,
+            "length": (deprel.length / 3) + "em",
+            "label": deprel,
+            "ctrl": [edgeHeight, edgeHeight, edgeHeight, edgeHeight] // ARC HEIGHT STUFFS
+        }
+        console.log('makeEnhancedDependency()',edgeDep['id'], edgeDep['source'], edgeDep['target'], edgeDep['label']);
+        console.log('makeEnhancedDependency()',edgeDep['ctrl']);
+        var coef = (head - nId);
+        if (Math.abs(coef) != 1) {coef *= defaultCoef};
+        edgeDep.ctrl = edgeDep.ctrl.map(function(el){ return el*coef; });
+
+        console.log('makeEnhancedDependency()',edgeDep['ctrl']);
+
+        graph.push({"data": edgeDep, "classes": "enhanced"});
+    };
+    return graph;
+}
 
 function makeDependencies(token, nodeId, graph) {
 	/* if there is head, create an edge for dependency */
@@ -269,24 +380,30 @@ function makeDependencies(token, nodeId, graph) {
 		if (VERT_ALIGNMENT) {edgeDep.ctrl = [45, 45, 45, 45]};
 		if (Math.abs(coef) != 1) {coef *= defaultCoef};
 		edgeDep.ctrl = edgeDep.ctrl.map(function(el){ return el*coef; });
+
+                //if(token.upostag == 'PUNCT' && !is_projective(TREE_, [parseInt(nodeId)])){
+                //    validDep = false;
+                //    console.log('WARNING: Non-projective punctuation');
+                //}
+
 		// if it's not valid, mark it as an error (see cy-style.js)
 		if(validDep && deprel != "" && deprel != undefined) {
 			graph.push({"data": edgeDep, "classes": "dependency"});
 			//console.log("makeDependencies(): valid @" + deprel);
 		} else if (deprel == "" || deprel == undefined) {
-			graph.push({"data": edgeDep, "classes": "dependency, incomplete"});
+			graph.push({"data": edgeDep, "classes": "dependency incomplete"});
 			//console.log("makeDependencies(): incomplete @" + deprel);
 		}else{
-			graph.push({"data": edgeDep, "classes": "dependency, error"});
+			graph.push({"data": edgeDep, "classes": "dependency error"});
 			//console.log("makeDependencies(): error @" + deprel);
 		}
 
 		var res = is_cyclic(TREE_);
-		if(!res[0]) {
+		/*if(!res[0]) {
 			//console.log('[3] writeDeprel is_cyclic=true');
 		} else {
 			//console.log('[3] writeDeprel is_cyclic=false');
-		}
+		}*/
 		//console.log(edgeDep);
 	};
 	return graph;
@@ -326,7 +443,7 @@ function makePOS(token, nodeId, graph) {
  * Creates a range of numbers in an array, starting at a specified number and
  * ending before a different specified number.
  */
-function range(start, finish, step) {
+function rangeExclusive(start, finish, step) {
 	// If only one number was passed in make it the finish and 0 the start.
 	if (arguments.length == 1) {
 		finish = start;
@@ -337,13 +454,15 @@ function range(start, finish, step) {
 	finish = finish || 0;
 	step = step || 1;
 
-	// If start is mroe than finish, reverse.
+	// If start is greater than finish, reverse.
 	if (start > finish) {
 		var temp = start;
 		start = finish;
 		finish = temp;
 	}
 
+	start = start+1;
+	//finish = finish-1;
 	// Create the array of numbers, stopping before the finish.
 	for (var ret = []; (finish - start) * step > 0; start += step) {
 		ret.push(start);
@@ -357,8 +476,8 @@ function cleanEdges() {
 	$.each(cy.filter('edge[id*="ed"]'), function (a, thisEdge) {
 		if (thisEdge.data('source') != thisEdge.data('target')) {
 			//console.log(thisEdge);
-			var sourceNode = thisEdge.data('source').replace("nf","");
-			var targetNode = thisEdge.data('target').replace("nf","");
+			var sourceNode = parseInt(thisEdge.data('source').replace("nf",""));
+			var targetNode = parseInt(thisEdge.data('target').replace("nf",""));
 			sources[targetNode] = sourceNode;
 			edges[targetNode] = thisEdge;
 			//var diff = Math.abs(sourceNode - targetNode);
@@ -376,9 +495,11 @@ function cleanEdges() {
 		//console.log(diff);
 		maxes[parseInt(targetNode)] = diff;
 	});
-	console.log(maxes);
+	//console.log('[0] cleanEdges() maxes:' + maxes);
 
 	// set height to max intervening height + 1
+	//console.log("Sources", sources);
+	//console.log("Maxes", maxes);
 	$.each(edges, function (targetNode, thisEdge) {
 		var sourceNode = sources[targetNode] ;
 		var targ = parseInt(targetNode)
@@ -389,16 +510,17 @@ function cleanEdges() {
 		if (targetNode<sourceNode) { increment = 1; } // else { increment = -1 };
 		if (diff > 1) {
 			var maxFound = 1;
-			var toCheck = range(targ+increment, sorc, Math.abs(increment));
-			console.log(maxes);
-			console.log("BEFORE LOOP", targ, sorc, toCheck, range(7, 3, 1));
+			var highest = (targ > sorc) ? targ : sorc;
+			var lowest = (targ < sorc) ? targ : sorc;
+			var toCheck = rangeExclusive(targ, sorc, Math.abs(increment));
+			//console.log(maxes);
+			//console.log("[1] cleanEdges() BEFORE LOOP:", targ, sorc, toCheck, rangeExclusive(targ, sorc, 1));
 			$.each(toCheck, function(x, i) {
 				if (maxes[i] > maxFound) {
 					maxFound = maxes[i];
 				}
-				console.log(targ, sorc, i, maxFound);
+				//console.log('[2] cleanEdges()', targ, sorc, i, maxFound);
 			});
-			maxes[targetNode] = maxFound;
 			//console.log("BEFORE LOOP", targ, sorc, increment, targ+increment, sorc-increment);
 			/**for (i=targ+increment; i=sorc-increment; i+=increment) {
 				console.log(targ, i, maxFound);
@@ -407,17 +529,48 @@ function cleanEdges() {
 				}
 			}**/
 			howHigh = maxFound +1;
-			console.log(targetNode, howHigh, "—", maxes);
+			maxes[targetNode] = howHigh;
+			//console.log(targetNode, howHigh, "—", maxes);
+			//if (!is_projective_nodes(TREE_, [sourceNode])) {
+			//	alert("ISN'T PROJECTIVE", sourceNode);
+			//}
+			//console.log(highest, lowest, sources[i]);
+			//if (sources[i] >= highest || sources[i] <= lowest) {
+			//	console.log("cleanEdges()", i, "CROSSES");
 		}
+
 		if (!LEFT_TO_RIGHT) {var RTL = -1} else {var RTL = 1}; // support for RTL
-		var thisHeight = 5+edgeHeight * defaultCoef * howHigh * increment * RTL;
+		var thisHeight = edgeHeight * defaultCoef * howHigh * increment * RTL;
 		//console.log("HARGLE "+thisHeight);
 		thisEdge.data({'ctrl': [thisHeight, thisHeight, thisHeight, thisHeight]});
-
 	});
 	//console.log(sources);
 	//cy.filter('edge[id="ed12"]').data({'ctrl': [thisHeight, thisHeight, thisHeight, thisHeight]});
 	//cy.filter('edge[id="ed12"]').data({'ctrl': [34,50,40,20]}); //.ctrl = [50,34,34,40]); //graph.filter('edge[id="n12"]');//, TREE_);
+
+	// go back through and test if any intervening nodes have arcs that cross this one
+	$.each(edges, function (targetNode, thisEdge) {
+		var sourceNode = sources[targetNode] ;
+		var targ = parseInt(targetNode);
+		var sorc = parseInt(sourceNode);
+		var diff = Math.abs(targ - sorc);
+		var verticalStagger = 0;
+		if (diff > 1) {
+			var toCheck = rangeExclusive(targ, sorc, 1);
+			var thisMax = maxes[targetNode];
+			$.each(toCheck, function(x, i) {
+				//console.log("HARGLE", sorc, thisMax, maxes[i]);
+				if (maxes[i] == thisMax+1 || maxes[i] == undefined) {
+					verticalStagger = staggersize;
+				}
+			});
+		}
+		var thisHeight = thisEdge.data()['ctrl'][0];
+		//console.log("HARGLE "+thisHeight, verticalStagger);
+		thisHeight += verticalStagger;
+		thisEdge.data({'ctrl': [thisHeight, thisHeight, thisHeight, thisHeight]});
+	});
+
 }
 function simpleIdSorting(n1, n2) {
     if( n1.id() < n2.id() ){

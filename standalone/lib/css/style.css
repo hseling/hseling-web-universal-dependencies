@@ -577,7 +577,7 @@ h4, h5, h6 {
 	z-index: +1;
 }
 
-.ui-autocomplete {
+.ui-selfcomplete {
        background-color: white;
        width: 150px;
        list-style-type: none;
@@ -622,4 +622,45 @@ box-shadow: inset 0 -1px 0 rgba(27,31,35,0.12);
 
 textarea {
 	border-color: #ddd;
+}
+
+.selfcomplete-suggestions {
+border: 1px solid #999;
+background: #FFF;
+cursor: default;
+overflow: auto;
+}
+.selfcomplete-suggestion {
+padding: 2px 5px;
+white-space: nowrap;
+overflow: hidden;
+}
+.selfcomplete-selected {
+background: #F0F0F0;
+}
+.selfcomplete-suggestions strong {
+font-weight: normal;
+color: #3399FF;
+}
+
+.tableColHeader {
+	position: absolute ;
+	right: 1px;
+	bottom: 1ex;
+	padding-left: 0.5ex;
+}
+
+.thead-default th {
+	position: relative ;
+	cursor: pointer ;
+	border-right: 1px solid white ;
+	border-left: 1px solid white ;
+	border-spacing: 1px;
+}
+
+.thead-default th:first-child {
+	border-left: 1px solid #e9ecef !important ;
+}
+.thead-default th:last-child {
+	border-right: 1px solid #e9ecef !important ;
 }

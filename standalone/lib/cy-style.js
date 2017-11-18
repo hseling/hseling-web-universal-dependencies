@@ -41,6 +41,13 @@ var CY_STYLE = [{
         "border-color": FANCY
     }
 }, {
+    "selector": "node.wf.root",
+    "style": {
+        "font-weight": "bold",
+        //"text-border-width": "2em",
+        "border-width": "2px"
+    }
+}, {
     "selector": "node.wf.activated",
     "style": {
         "background-color": ACTIVE
@@ -87,6 +94,7 @@ var CY_STYLE = [{
     "curve-style": "unbundled-bezier",
     "control-point-distances": "data(ctrl)",
     "control-point-weights": "0 0.25 0.75 1",
+    'arrow-scale': '1.5',
     "edge-distances": "node-position",
     "label": "data(label)",
     "text-events": "yes"
@@ -101,11 +109,27 @@ var CY_STYLE = [{
     "curve-style": "unbundled-bezier",
     "control-point-distances": "data(ctrl)",
     "control-point-weights": "0 0.25 0.75 1",
+    'arrow-scale': '1.5',
     "edge-distances": "node-position",
     "label": "data(label)",
     "text-events": "yes"
   }
 }, {
+  "selector": "edge.enhanced",
+  "style": {
+    "target-arrow-shape": "triangle",
+    "target-arrow-color": "#045",
+    "line-color": "#045",
+    "text-margin-y": -10,
+    "curve-style": "unbundled-bezier",
+    "control-point-distances": "data(ctrl)",
+    "control-point-weights": "0 0.25 0.75 1",
+    "edge-distances": "node-position",
+    'arrow-scale': '1.5',
+    "label": "data(label)",
+    "text-events": "yes"
+  }
+},  {
   "selector": "edge.dependency",
   "style": {
     "target-arrow-shape": "triangle",

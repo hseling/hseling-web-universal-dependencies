@@ -6,6 +6,7 @@ var ROOT = './lib/';
 var CONTENTS = "";
 var TEXTAREA_ROWS_DEFAULT = 20;
 var AVAILABLESENTENCES = 0;
+var LOCALSTORAGE_AVAILABLE = -1;
 var CURRENTSENTENCE = 0;
 var TABLE_VIEW = false;
 var TABLE_COLUMNS_HEADERS = {"ID":0,"FORM":1,"LEMMA":2,"UPOSTAG":3,"XPOSTAG":4,"FEATS":5,"HEAD":6,"DEPREL":7,"DEPS":8,"MISC":9};
@@ -14,6 +15,7 @@ var RESULTS = [];
 var LOC_ST_AVAILABLE = false;
 var SERVER_RUNNING = false;
 var AMBIGUOUS = false;
+var VIEW_ENHANCED = false;
 var LABELS = [];
 
 
@@ -25,6 +27,7 @@ function main() {
         // ROOT + 'ext/cytoscape-panzoom.js',
         ROOT + 'ext/undomanager.js',
         ROOT + 'ext/popper.min.js',
+        ROOT + 'ext/jquery.autocomplete.js',
         ROOT + 'ext/bootstrap.min.js',
         ROOT + 'ext/l20n.js',
 
@@ -59,16 +62,19 @@ function main() {
         window.undoManager = new UndoManager();
         setUndos(window.undoManager);
 
+
         // trying to load the corpus from localStorage
         if (storageAvailable('localStorage')) {
             LOC_ST_AVAILABLE = true;
+            getLocalStorageMaxSize();
+            $("#localStorageAvailable").text(LOCALSTORAGE_AVAILABLE / 1024 + "k");
             if (localStorage.getItem("corpus") != null) {
                 CONTENTS = localStorage.getItem("corpus");
                 loadDataInIndex();
             };
         }
         else {
-            console.log("localStorage is not avaliable :(")
+            console.log("localStorage is not available :(")
             // add a nice message so the user has some idea how to fix this
             var warnMsg = document.createElement('p');
             warnMsg.innerHTML = "Unable to save to localStorage, maybe third-party cookies are blocked?";
@@ -83,6 +89,7 @@ function main() {
         // $("#RTL").bind("change", switchRtlMode);
         $("#RTL").on("click", switchRtlMode);
         $("#vertical").on("click", switchAlignment);
+        $("#enhanced").on("click", switchEnhanced);
         loadFromUrl();
     });
 
@@ -114,7 +121,6 @@ function addHandlers() {
 }
 
 function changeZoom() {
-
     console.log('zoom event');
 //if(event.shiftKey) {
 //    console.log('zoom event+SHIFT');
@@ -275,8 +281,8 @@ function prevSenSent() {
     showDataIndiv();
 }
 
-//When Navigate to next item
 function nextSenSent() {
+    //When Navigate to next item
     RESULTS[CURRENTSENTENCE] = document.getElementById("indata").value;
     CURRENTSENTENCE++;
     if(CURRENTSENTENCE >= AVAILABLESENTENCES) {
@@ -300,8 +306,8 @@ function clearLabels() {
     }
 }
 
-//Export Corpora to file
 function exportCorpora() {
+    //Export Corpora to file
     var finalcontent = getTreebank();
 
     var link = document.createElement('a');
@@ -642,6 +648,7 @@ function tableEditCell(loc) {
             if(thisCell.trim() == "") {
                 thisCell = "_";
             }
+            thisCell = thisCell.replace(/<br>/, ''); // Get rid of extra spaces
 //            console.log("@" + table.rows[r].cells[c].innerHTML + " // " + thisCell);
             if(c > 0) {
               conllu = conllu + "\t" + thisCell;
@@ -682,7 +689,10 @@ function updateTable() {
             continue;
         }
         //console.log(line);
-        if(line[0] == '#') { 
+        if(line[0] == '#') {
+            $("#indataTable tbody").append('<tr style="display:none" id="table_"' + row + '"><td colspan="10"><span>' + line + '</span></td></tr>'); 
+        } else if(line.split('\t').length != 10) { 
+            console.log('WEIRDNESS:', line.split('\t').length ,line);
             $("#indataTable tbody").append('<tr style="display:none" id="table_"' + row + '"><td colspan="10"><span>' + line + '</span></td></tr>'); 
         } else { 
             var lineRow = $("<tr>");
@@ -745,18 +755,23 @@ function toggleTableColumn(col) {
    var button = $("#tableCol_" + col).text();  // The text (e.g. dot)
 
    console.log("toggleTableColumn() " + " " + col + " " + button);
-   $("#tableCol_" + col).empty(); // Empty the text
+   // $("#tableCol_" + col).empty(); // Empty the text
+
+   $("#tableCol_" + col + " i").toggleClass("fa-angle-double-right", "fa-angle-double-left"); 
+   $("#tableHead_" + col).toggle();
+   $("[id^=table_][id$=" + colId+"]").toggle();
+   TABLE_COLUMNS_VISIBILITY[colId] = !TABLE_COLUMNS_VISIBILITY[colId] ;
 
    if(button == "⚪") {  // If the column is currently hidden, make it visible
-     $("#tableCol_" + col).append("⚫");
-     $("#tableHead_" + col).css("display","inline-block");
-     $("[id^=table_][id$=" + colId+"]").css("display","inline-block");
-     TABLE_COLUMNS_VISIBILITY[colId] = true;
+     //$("#tableCol_" + col).append("⚫");
+     //$("#tableHead_" + col).css("display","inline-block");
+     //$("[id^=table_][id$=" + colId+"]").css("display","inline-block");
+     //TABLE_COLUMNS_VISIBILITY[colId] = true;
    } else { // If the column is visible make it hidden
-     $("#tableCol_" + col).append("⚪");
-     $("#tableHead_" + col).css("display","none");
-     $("[id^=table_][id$=" + colId+"]").css("display","none");
-     TABLE_COLUMNS_VISIBILITY[colId] = false;
+     //$("#tableCol_" + col).append("⚪");
+     //$("#tableHead_" + col).css("display","none");
+     //$("[id^=table_][id$=" + colId+"]").css("display","none");
+     //TABLE_COLUMNS_VISIBILITY[colId] = false;
    }
 
    // TODO: Maybe use greying out of the headers in addition to/instead of 
@@ -767,6 +782,8 @@ function toggleCodeWindow() {
     $("#codeVisibleButton").toggleClass('fa-chevron-down', 'fa-chevron-up');
     //console.log('toggleCodeWindow()');
     $(".indataarea").toggle();
+    $("#tabBox").toggle();
+    $("#viewButton").toggle();
     /**
     if(TABLE_VIEW) {
         $("#indataTable").toggle('show');
@@ -774,6 +791,49 @@ function toggleCodeWindow() {
         $("#indata").toggle('show');
     }
     **/
+}
+
+function getLocalStorageMaxSize(error) {
+  // Returns the remaining available space in localStorage
+  if (localStorage) {
+    var max = 10 * 1024 * 1024,
+        i = 64,
+        string1024 = '',
+        string = '',
+        // generate a random key
+        testKey = 'size-test-' + Math.random().toString(),
+        minimalFound = 0,
+        error = error || 25e4;
+
+    // fill a string with 1024 symbols / bytes    
+    while (i--) string1024 += 1e16;
+
+    i = max / 1024;
+
+    // fill a string with 'max' amount of symbols / bytes    
+    while (i--) string += string1024;
+
+    i = max;
+
+    // binary search implementation
+    while (i > 1) {
+      try {
+        localStorage.setItem(testKey, string.substr(0, i));
+        localStorage.removeItem(testKey);
+
+        if (minimalFound < i - error) {
+          minimalFound = i;
+          i = i * 1.5;
+        }
+        else break;
+      } catch (e) {
+        localStorage.removeItem(testKey);
+        i = minimalFound + (i - minimalFound) / 2;
+      }
+    }
+
+    LOCALSTORAGE_AVAILABLE = minimalFound;
+  }
 }
 
 function focusOut(key) {

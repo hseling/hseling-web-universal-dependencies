@@ -20,6 +20,7 @@ var K = 75;
 var D = 68;
 var I = 73;
 var S = 83;
+var R = 82;
 var M = 77;
 var SIDES = {39: "right", 37: "left"};
 var POS2RELmappings = {
@@ -100,6 +101,13 @@ function writeArc(sourceNode, destNode) {
     if(thisToken['upostag'] in POS2RELmappings) {
         sentAndPrev = changeConlluAttr(sent, indices, "deprel", POS2RELmappings[thisToken['upostag']])
     }
+
+    var validDep = true;
+    if(thisToken['upostag'] == 'PUNCT' && !is_projective_nodes(sent.tokens, [destIndex])){
+        validDep = false;
+        console.log('WARNING: Non-projective punctuation');
+    }
+
 
     sent = sentAndPrev[0];
     var pervVal = sentAndPrev[1];
@@ -206,7 +214,7 @@ function keyUpClassifier(key) {
     // looking if some wf node is selected
     var wf = cy.$("node.wf.activated");
     // looking if a supertoken node is selected
-    var st = cy.$(".supAct"); // probably needs debugging
+    var st = cy.$(".supAct");
     // looking if some node waits to be merged
     var toMerge = cy.$(".merge");
     // looking if some node waits to be merged to supertoken
@@ -242,6 +250,8 @@ function keyUpClassifier(key) {
         } else if (key.which == S) {
             wf.addClass("supertoken");
             wf.removeClass("activated");
+        } else if (key.which == R) {
+            setRoot(wf);
         };
     } else if (toMerge.length) {
         if (key.which in SIDES) {
@@ -252,31 +262,37 @@ function keyUpClassifier(key) {
             mergeNodes(toSup, SIDES[key.which], "supertoken");
         }
     } else if (st.length) {
-        if (key.which == DEL_KEY) {
+        if (key.which == DEL_KEY || key.which == BACKSPACE) {
             removeSup(st);
         }
     }
     //console.log('KEY: ' + key.which);
-    console.log('KEY: ' + key.which);
-    console.log('ZOOM: ', CURRENT_ZOOM);
-    if(key.which == EQUALS || key.which == 61){
-        CURRENT_ZOOM = cy.zoom();
-        if(key.shiftKey) {
-            CURRENT_ZOOM += 0.1;
-        }  else { 
+    var inputAreaFocus = $("#indata").is(":focus");
+    // console.log('KEY: ' + key.which, inputAreaFocus);
+    if(!inputAreaFocus) {
+        // console.log('ZOOM: ', CURRENT_ZOOM, inputAreaFocus);
+        if((key.which == EQUALS || key.which == 61) ){
+            CURRENT_ZOOM = cy.zoom();
+            if(key.shiftKey) { // zoom in
+                CURRENT_ZOOM += 0.1;
+            }  else {  // fit to screen
+                CURRENT_ZOOM = cy.fit(); 
+            }
+            cy.zoom(CURRENT_ZOOM);
+            cy.center();
+        } else if((key.which == MINUS || key.which == 173) ) { // zoom out
+            CURRENT_ZOOM = cy.zoom();
+            //if(key.shiftKey) { 
+                CURRENT_ZOOM -= 0.1;
+            //}
+            cy.zoom(CURRENT_ZOOM);
+            cy.center();
+        } else if(key.which == 48 ) { // 0 = zoom 1.0
             CURRENT_ZOOM = 1.0;
+            cy.zoom(CURRENT_ZOOM);
+            cy.center();
         }
-        cy.zoom(CURRENT_ZOOM);
-        cy.center();
-    } else if(key.which == MINUS || key.which == 173) {
-        CURRENT_ZOOM = cy.zoom();
-        if(key.shiftKey) { 
-            CURRENT_ZOOM -= 0.1;
-        }
-        cy.zoom(CURRENT_ZOOM);
-        cy.center();
     }
-
 }
 
 
@@ -293,32 +309,33 @@ function moveArc() {
 
 
 function removeSup(st) {
-    /* Support for removing supertokens. */
+    /* Support for removing supertokens.
+    The function takes the cy-element of superoken that was selected,
+    removes it and inserts its former subtokens. */
     var sent = buildSent();
-    var id = st.id().slice(2) - 1;
-    var supIds = [];
-    $.each(sent.tokens, function(n, tok) {
-        if (tok.tokens) {supIds.push(n)};
-    });
-
-    var subTokens = sent.tokens[supIds[id]].tokens;
-    sent.tokens.splice(supIds[id], 1);
-
-    // is there really no more beautiful way?..
-    $.each(subTokens, function(n, tok) {
-        sent.tokens.splice(supIds[id], 0, tok);
+    var currentId = +st.id().slice(2); // the id of the supertoken to be removed
+    var subTokens = sent.tokens[currentId].tokens; // getting its children
+    sent.tokens.splice(currentId, 1); // removing the multiword token
+    $.each(subTokens, function(n, tok) { // inserting the subtokens
+        sent.tokens.splice(currentId + n, 0, tok);
     });
     redrawTree(sent);
 }
 
 
 function changeNode() {
-//    console.log("changeNode() " + this.data("label"));
+    console.log("changeNode() " + Object.entries(this) + " // " + this.id());
+
     this.addClass("input");
     var id = this.id().slice(0, 2);
     var param = this.renderedBoundingBox();
     param.color = this.style("background-color");
-    if (id == "ed") {param = changeEdgeParam(param)};
+    var nodeType;
+    if (id == "ed") {
+        param = changeEdgeParam(param);
+        nodeType = "DEPREL";
+    }
+    if (id == "np") {nodeType = "UPOS"};
 
     // for some reason, there are problems with label in deprels without this 
     if (this.data("label") == undefined) {this.data("label", "")};
@@ -335,23 +352,39 @@ function changeNode() {
     if (VERT_ALIGNMENT) {
         $(".activated#mute").css("height", (length * 50) + "px");
     } else {
-        $(".activated#mute").css("width", "1500px");
+        //$(".activated#mute").css("width", "1500px");
+        $(".activated#mute").css("width", $(window).width()-10);
     }
 
     // TODO: rank the labels + make the style better  
-    var availableLabels = U_DEPRELS ;
-    $("#edit").autocomplete({source: availableLabels});
+    var availableLabels = [];
+    if(nodeType == "UPOS") {
+        availableLabels = U_POS; 
+    } else if(nodeType == "DEPREL") { 
+        availableLabels = U_DEPRELS;
+    }
+    console.log('availableLabels:', availableLabels);
+ 
+    // autocomplete
+
+    $('#edit').selfcomplete({lookup: availableLabels, 
+        tabDisabled: false,
+        autoSelectFirst:true,
+        lookupLimit:5
+    });
 
     $("#edit").css("top", param.y1)
         .css("left", param.x1)
         .css("height", param.h)
         .css("width", param.w)
-        .css("background-color", param.color)
+        //.css("background-color", param.color)
         .attr("value", this.data("label"))
         .addClass("activated")
         .addClass(id);
 
+
     $("#edit").focus();
+
 }
 
 
@@ -374,6 +407,20 @@ function find2change() {
     var active = cy.$(".input");
     var Id = active.id().slice(2) - 1;
     return Id;
+}
+
+
+function setRoot(wf) {
+   var sent = buildSent();
+   var indices = findConlluId(wf);
+   var outerIndex = indices[1];
+   var cur = parseInt(sent.tokens[outerIndex].id);
+   var head = 0;
+   console.log('setRoot()', outerIndex, cur, head);
+   var sentAndPrev = changeConlluAttr(sent, indices, "deprel", "root");
+   var sentAndPrev = changeConlluAttr(sent, indices, "head", head);
+
+   redrawTree(sent);
 }
 
 
@@ -687,6 +734,7 @@ function redrawTree(sent) {
     $("#indata").val(changedSent);
     updateTable();
     drawTree(); 
+    cy.zoom(CURRENT_ZOOM);
 }
 
 
@@ -758,6 +806,14 @@ function viewAsCG() {
     }
     $("#viewCG").addClass("active");
     $("#indata").val(text);
+
+    if(TABLE_VIEW) {
+        $("#tableViewButton").toggleClass('fa-code', 'fa-table');
+        $("#indataTable").toggle();
+        $("#indata").toggle();
+        TABLE_VIEW = false ;
+    }
+
 }
 
 
@@ -797,6 +853,18 @@ function switchAlignment() {
     drawTree();
 }
 
+function switchEnhanced() {
+    $('#enhanced .fa').toggleClass('fa-tree');
+    $('#enhanced .fa').toggleClass('fa-magic');
+    if (VIEW_ENHANCED) {
+        VIEW_ENHANCED = false;
+    } else {
+        VIEW_ENHANCED = true;
+    }
+    drawTree();
+}
+
+
 $(document).ready(function(){
 	$('#currentsen').keyup(function(e){
 		if(e.keyCode == 13) {
@@ -826,14 +894,21 @@ $(document).ready(function(){
 			prevSenSent();
 			map = [];
 			map["Shift"] = true; // leave Shift so that another event can be fired
+		}else if(map["Control"] && map["z"]) {
+			undoManager.undo();
+			updateUI();
+		}else if(map["Control"] && map["y"] || map["Control"] && map["Shift"] && map["Z"]) {
+			undoManager.redo();
+			updateUI();
 		}
 		//return false;  // only needed if want to override all the shortcuts
 	}
 
-		$('#helpModal').on('show.bs.modal', console.log);
+	//$('#helpModal').on('show.bs.modal', console.log);
 
 	$('#helpModal').on('shown.bs.modal', function(e) {
 		//alert('HARGLE BARGLE');
+                $("#treebankSize").text(CONTENTS.length); // TODO: Report the current loaded treebank size to user
 		$(e.target).find('.modal-body').load('help.html');
 	});
 
@@ -844,4 +919,17 @@ $(document).ready(function(){
 //	});
 
 	$('#viewText').hide() ;
+
+	// collapse columns when header is clicked on
+	$('.thead-default th').on('click', function(e) {
+		var columnHeader = $('.tableColHeader', this)[0];
+		if (columnHeader) {  // prevents non-collapsible cols from throwing errors
+			toggleTableColumn(columnHeader.title);
+		}
+	});
+	// this way of doing it only responds when icon is clicked:
+	//$('.tableColHeader').on('click', function(e) {
+	//	toggleTableColumn(this.title);
+	//});
 });
+

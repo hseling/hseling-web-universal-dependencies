@@ -10,9 +10,19 @@
 	<link rel="stylesheet" href="./lib/ext/bootstrap.min.css" />
 	<link rel="stylesheet" type="text/css" href="./lib/ext/font-awesome-4.7.0/css/font-awesome.min.css" />
 	<link rel="stylesheet" type="text/css" href="./lib/css/style.css" />
+	<!-- link href="./lib/ext/select2.min.css" rel="stylesheet" / -->
+	<!--<link rel="stylesheet" href="./lib/ext/select2-bootstrap-v4.0.0-Beta.css" />-->
 
 	<meta name="defaultLanguage" content="eng">
-	<meta name="availableLanguages" content="eng, cat">
+	<meta name="availableLanguages" content="eng, cat, rus">
+	<script type="text/fluent" lang="rus">
+err_upos_invalid = Не существует « { $tag } » в списке Универсальных тагов частей речи.
+
+err_udeprel_invalid = Не существует « { $label } » в списке Универсальных зависимостей.
+
+err_udep_leaf_node = Узлы с тегом части речи « { $tag } » обычно не должны иметь зависящих.
+        </script>
+
 	<script type="text/fluent" lang="cat">
 err_upos_invalid = No es troba « { $tag } » a la llista d'etiquetes universals de categoria lèxica.
 
@@ -63,8 +73,16 @@ err_udep_leaf_node = Nodes with the « { $tag } » part-of-speech tag should nor
 						</button>
 					</div>
 					<div class="modal-body">
+                                                <!-- This message can be removed when we have better error handling. -->
+                                                <p>This will upload your treebank to your browser's local storage. If there is not 
+                                                enough space then the file will not be uploaded successfully. The amount of 
+                                                available space according to your browser is reported below.</p>
 						<span title="When you select a file it will automatically upload it into the interface"><u>Choose and upload file</u></span>:
-						<input type="file" id="filename"/>
+						<input type="file" id="filename"/><br/>
+                                                <div>
+                                                Treebank size: <span id="treebankSize"></span>
+                                                Available space: <span id="localStorageAvailable"></span> 
+                                                </div>
 					</div>
 					<div class="modal-footer">
 						<button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
@@ -162,16 +180,41 @@ err_udep_leaf_node = Nodes with the « { $tag } » part-of-speech tag should nor
 							<i class="fa fa-repeat" title="Redo"></i>
 						</button>
 					</div>
-					<div class="btn-group" style="float:left">
+					<div class="btn-group" style="float:left; padding-right: 1em;">
 						<a class="btn btn-secondary" href="#" data-toggle="modal" data-target="#helpModal">
 							<i class="fa fa-question-circle" title="Help"></i>
 						</a>
 					</div>
+					<div class="btn-group" style="float:left">
+						<a class="btn btn-secondary" href="#" data-toggle="modal" data-target="#settingsModal">
+							<i class="fa fa-cog" title="Settings"></i>
+						</a>
+					</div>
 				</div>
-				<div class="tabContainer col-xs-5 ml-auto corpusNavigation" role="toolbar">
-					<a class="btn btn-secondary" href="#" onClick="javascript: toggleCodeWindow();">
-						<i id="codeVisibleButton" class="fa fa-chevron-up" title="Show/hide text area"></i>
-					</a>
+
+				<div class="tabContainer col-xs-1 ml-auto" style="float: right" role="toolbar">
+					<div id="tabBox" class="nav nav-tabs" style="padding-right: 1em;">
+						<li class="nav-item">
+							<a href="#" class="nav-link" id="viewOther"></a>
+						</li>
+						<li class="nav-item">
+							<a href="#" class="nav-link active" id="viewConllu" onClick="javascript:viewAsConllu();">CoNLL-U</a>
+						</li>
+						<li class="nav-item">
+							<a href="#" class="nav-link" id="viewCG" onClick="javascript:viewAsCG();">CG3</a>
+						</li>
+					</div>
+					<div id="viewButton" class="btn-group ml-auto corpusNavigation" style="padding-right: 1em;">
+						<a class="btn btn-secondary" href="#" onClick="javascript: toggleTableView();">
+							<i id="tableViewButton" class="fa fa-table" title="Table view"></i>
+						</a>
+					</div>
+
+					<div class="btn-group ml-auto corpusNavigation">
+						<a class="btn btn-secondary" href="#" onClick="javascript: toggleCodeWindow();">
+							<i id="codeVisibleButton" class="fa fa-chevron-up" title="Show/hide text area"></i>
+						</a>
+					</div>
 				</div>
 			</div>
 
@@ -182,29 +225,6 @@ err_udep_leaf_node = Nodes with the « { $tag } » part-of-speech tag should nor
 				<button role="tab" id="remove" onClick="javascript:removeCurSent();">Remove sentence</button>
 			</div -->
 			<div class="indataarea" style="position: relative">
-				<div class="row" style="padding-top: none">
-					<div class="tabContainer col-xs-1 corpusNavigation" style="float: left" role="toolbar">
-						<a class="btn btn-secondary" href="#" onClick="javascript: toggleTableView();">
-							<i id="tableViewButton" class="fa fa-table" title="Table view"></i>
-						</a>
-					</div>
-
-					<div class="btn-toolbar col-xs-6 ml-auto" style="float: right;" role="toolbar">
-						<div class="tabContainer col-xs-5 ml-auto">
-							<div class="nav nav-tabs">
-								<li class="nav-item">
-									<a href="#" class="nav-link" id="viewOther"></a>
-								</li>
-								<li class="nav-item">
-									<a href="#" class="nav-link active" id="viewConllu" onClick="javascript:viewAsConllu();">CoNLL-U</a>
-								</li>
-								<li class="nav-item">
-									<a href="#" class="nav-link" id="viewCG" onClick="javascript:viewAsCG();">CG3</a>
-								</li>
-							</div>
-						</div>
-					</div>
-				</div>
 				<textarea id="indata" class="w-100" style="font-size: 85%" rows="20"></textarea>
                                 <div style="overflow:auto; resize:both;">
 				<table id="indataTable" class="table table-bordered table-sm table-hover w-100" style="width:100%; display: none;">
@@ -212,14 +232,14 @@ err_udep_leaf_node = Nodes with the « { $tag } » part-of-speech tag should nor
 						<tr>
                                                         <th><span id="tableCol_ID"></span><span id="tableHead_ID">ID</span></th>
                                                         <th><span id="tableCol_FORM"></span><span id="tableHead_FORM">FORM</span></th>
-                                                        <th><span id="tableCol_LEMMA" title="LEMMA" onClick="javascript: toggleTableColumn('LEMMA');">⚫</span><span id="tableHead_LEMMA">LEMMA</span></th>
-                                                        <th><span id="tableCol_UPOSTAG" title="UPOSTAG" onClick="javascript: toggleTableColumn('UPOSTAG');">⚫</span><span id="tableHead_UPOSTAG">UPOSTAG</span></th>
-                                                        <th><span id="tableCol_XPOSTAG" title="XPOSTAG" onClick="javascript: toggleTableColumn('XPOSTAG');">⚫</span><span id="tableHead_XPOSTAG">XPOSTAG</span></th>
-                                                        <th><span id="tableCol_FEATS" title="FEATS" onClick="javascript: toggleTableColumn('FEATS');">⚫</span><span id="tableHead_FEATS">FEATS</span></th>
-                                                        <th><span id="tableCol_HEAD" title="HEAD" onClick="javascript: toggleTableColumn('HEAD');">⚫</span><span id="tableHead_HEAD">HEAD</span></th>
-                                                        <th><span id="tableCol_DEPREL" title="DEPREL" onClick="javascript: toggleTableColumn('DEPREL');">⚫</span><span id="tableHead_DEPREL">DEPREL</span></th>
-                                                        <th><span id="tableCol_DEPS" title="DEPS" onClick="javascript: toggleTableColumn('DEPS');">⚫</span><span id="tableHead_DEPS">DEPS</span></th>
-                                                        <th><span id="tableCol_MISC" title="MISC" onClick="javascript: toggleTableColumn('MISC');">⚫</span><span id="tableHead_MISC">MISC</span></th>
+                                                        <th><span class="tableColHeader" id="tableCol_LEMMA" title="LEMMA"><i class="fa fa-angle-double-left"></i></span><span id="tableHead_LEMMA">LEMMA</span></th>
+                                                        <th><span class="tableColHeader" id="tableCol_UPOSTAG" title="UPOSTAG"><i class="fa fa-angle-double-left"></i></span><span id="tableHead_UPOSTAG">UPOSTAG</span></th>
+                                                        <th><span class="tableColHeader" id="tableCol_XPOSTAG" title="XPOSTAG"><i class="fa fa-angle-double-left"></i></span><span id="tableHead_XPOSTAG">XPOSTAG</span></th>
+                                                        <th><span class="tableColHeader" id="tableCol_FEATS" title="FEATS"><i class="fa fa-angle-double-left"></i></span><span id="tableHead_FEATS">FEATS</span></th>
+                                                        <th><span class="tableColHeader" id="tableCol_HEAD" title="HEAD"><i class="fa fa-angle-double-left"></i></span><span id="tableHead_HEAD">HEAD</span></th>
+                                                        <th><span class="tableColHeader" id="tableCol_DEPREL" title="DEPREL"><i class="fa fa-angle-double-left"></i></span><span id="tableHead_DEPREL">DEPREL</span></th>
+                                                        <th><span class="tableColHeader" id="tableCol_DEPS" title="DEPS"><i class="fa fa-angle-double-left"></i></span><span id="tableHead_DEPS">DEPS</span></th>
+                                                        <th><span class="tableColHeader" id="tableCol_MISC" title="MISC"><i class="fa fa-angle-double-left"></i></span><span id="tableHead_MISC">MISC</span></th>
 
 						</tr>
 					</thead>
@@ -241,6 +261,10 @@ err_udep_leaf_node = Nodes with the « { $tag } » part-of-speech tag should nor
 					<!-- when fa-rotate-90 is set as default, the button shows the mode to switch to; without it, then it shows the current mode -->
 					<i class="fa fa-align-justify fa-rotate-90" title="Toggle vertical / horizontal display"></i>
 				</button>
+				<button id="enhanced" type="button" class="btn btn-outline-primary" data-toggle="button" aria-pressed="false" autocomplete="off">
+					<i class="fa fa-tree" title="Toggle enhanced / basic dependencies"></i>
+				</button>
+
 			</div>
 	          <!--p>
 	              <input type="checkbox" id="RTL" name="RTL">

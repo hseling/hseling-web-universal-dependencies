@@ -20,11 +20,13 @@ var LABELS = [];
 
 
 function main() {
+    /* Loads all the js libraries and project modules, then calles onReady.
+    If server is running, makes a button for saving data.*/
+
     head.js(
         ROOT + 'ext/jquery-3.2.1.min.js',
         ROOT + 'ext/jquery-ui-1.12.1/jquery-ui.min.js',
         ROOT + 'ext/cytoscape.min.js',
-        // ROOT + 'ext/cytoscape-panzoom.js',
         ROOT + 'ext/undomanager.js',
         ROOT + 'ext/popper.min.js',
         ROOT + 'ext/jquery.autocomplete.js',
@@ -45,80 +47,96 @@ function main() {
         ROOT + 'cy-style.js'
     );
 
-    head.ready(function() {
+    head.ready(onReady);
 
-        fetch('running').then(
-            function(data) {
-                console.log("Response from server, status: " + data["status"]);
-                getCorpusData();
-                SERVER_RUNNING = true;
-            }); // TODO: to get rid of the error, read about promisses: https://qntm.org/files/promise/promise.html
-
-        // TODO: causes errors if called before the cy is initialised
-//        $(document).keyup(keyUpClassifier); 
-        $(document).keyup(function(event) {keyUpClassifier(event);}); 
-
-        // undo support
-        window.undoManager = new UndoManager();
-        setUndos(window.undoManager);
-
-
-        // trying to load the corpus from localStorage
-        if (storageAvailable('localStorage')) {
-            LOC_ST_AVAILABLE = true;
-            getLocalStorageMaxSize();
-            $("#localStorageAvailable").text(LOCALSTORAGE_AVAILABLE / 1024 + "k");
-            if (localStorage.getItem("corpus") != null) {
-                CONTENTS = localStorage.getItem("corpus");
-                loadDataInIndex();
-            };
-        }
-        else {
-            console.log("localStorage is not available :(")
-            // add a nice message so the user has some idea how to fix this
-            var warnMsg = document.createElement('p');
-            warnMsg.innerHTML = "Unable to save to localStorage, maybe third-party cookies are blocked?";
-            var warnLoc = document.getElementById('warning');
-            warnLoc.appendChild(warnMsg);
-
-        }
-
-        // $("#indata").keyup(drawTree);
-        $("#indata").bind("keyup", drawTree);
-        $("#indata").bind("keyup", focusOut);
-        // $("#RTL").bind("change", switchRtlMode);
-        $("#RTL").on("click", switchRtlMode);
-        $("#vertical").on("click", switchAlignment);
-        $("#enhanced").on("click", switchEnhanced);
-        loadFromUrl();
-    });
-
-    document.getElementById('filename').addEventListener('change', loadFromFile, false);
-
+    // if server is running, make a button for saving data on server
     setTimeout(function(){
         if (SERVER_RUNNING) {
             $("#save").css("display", "block")
-                .css("background-color", NORMAL);
+                      .css("background-color", NORMAL);
         }
     }, 500);
 }
 
 
-function addHandlers() {
-    // NOTE: If you change the style of a node (e.g. its selector) then
-    // you also need to update the event handler here
+function onReady() {
+    /*
+    Called when all the naive code and libraries are loded.
+    - checks if server is running
+    - sets undo manager
+    - loads data from localStorage, if avaliable
+    - checks if someone loads data in url
+    - binds handlers to DOM emements
+    */
+    fetch('running').then(
+        function(data) {
+            console.log("Response from server, status: " + data["status"]);
+            getCorpusData();
+            SERVER_RUNNING = true;
+        }); // TODO: to get rid of the error, read about promisses: https://qntm.org/files/promise/promise.html
+
+    window.undoManager = new UndoManager();  // undo support
+    setUndos(window.undoManager);
+
+    loadFromLocalStorage(); // trying to load the corpus from localStorage
+    loadFromUrl();
+    bindHanlers()
+}
+
+
+function loadFromLocalStorage() {
+    /* Checks if localStorage is avaliable. If yes, tries to load the corpus
+    from localStorage. If no, warn user that localStorage is not avaliable. */
+
+    if (storageAvailable('localStorage')) {
+        LOC_ST_AVAILABLE = true;
+        getLocalStorageMaxSize();
+        $("#localStorageAvailable").text(LOCALSTORAGE_AVAILABLE / 1024 + "k");
+        if (localStorage.getItem("corpus") != null) {
+            CONTENTS = localStorage.getItem("corpus");
+            loadDataInIndex();
+        };
+    }
+    else {
+        console.log("localStorage is not available :(")
+        // add a nice message so the user has some idea how to fix this
+        var warnMsg = document.createElement('p');
+        warnMsg.innerHTML = "Unable to save to localStorage, maybe third-party cookies are blocked?";
+        var warnLoc = document.getElementById('warning');
+        warnLoc.appendChild(warnMsg);
+
+    }
+}
+
+
+function bindHanlers() {
+    /* Binds handlers to DOM elements. */
+
+    // TODO: causes errors if called before the cy is initialised
+    $(document).keyup(keyUpClassifier);
+
+    $("#indata").bind("keyup", drawTree);
+    $("#indata").bind("keyup", focusOut);
+    $("#RTL").on("click", switchRtlMode);
+    $("#vertical").on("click", switchAlignment);
+    $("#enhanced").on("click", switchEnhanced);
+    document.getElementById('filename').addEventListener('change', loadFromFile, false);
+}
+
+
+function bindCyHandlers() {
+    /* Binds event handlers to cy elements.
+    NOTE: If you change the style of a node (e.g. its selector) then
+    you also need to update it here. */
     cy.on('click', 'node.wf', drawArcs);
     cy.on('cxttapend', 'edge.dependency', selectArc);
-    cy.on('cxttapend', 'edge.error', selectArc);
-    cy.on('cxttapend', 'edge.incomplete', selectArc);
     cy.on('click', 'node.pos', changeNode);
     cy.on('click', '$node > node', selectSup);
     cy.on('cxttapend', 'node.wf', changeNode);
     cy.on('click', 'edge.dependency', changeNode);
-    cy.on('click', 'edge.error', changeNode);
-    cy.on('click', 'edge.incomplete', changeNode);
     cy.on('zoom', changeZoom);
 }
+
 
 function changeZoom() {
     console.log('zoom event');
@@ -320,6 +338,8 @@ function exportCorpora() {
 
 
 function clearCorpus() {
+    /* Removes all the corpus data from CONTENTS and localStorage,
+    clears all the ralated global variables. */
     CONTENTS = "";
     AVAILABLESENTENCES = 0;
     CURRENTSENTENCE = 0;
@@ -423,7 +443,7 @@ function drawTree() {
         var inpSupport = $("<div id='mute'>"
             + "<input type='text' id='edit' class='hidden-input'/></div>");
         $("#cy").prepend(inpSupport);
-        addHandlers();
+        bindCyHandlers();
     }
 
     if (LOC_ST_AVAILABLE) {
@@ -435,43 +455,6 @@ function drawTree() {
     } else {
         clearWarning();
     }
-}
-
-function cleanConllu(content) {
-    // if we don't find any tabs, then convert >1 space to tabs
-    // TODO: this should probably go somewhere else, and be more
-     // robust, think about vietnamese D:
-    var res = content.search("\n");
-    if(res < 0) {
-        return content;
-    }
-    // maybe someone is just trying to type conllu directly...
-    var res = (content.match(/_/g)||[]).length;
-    if(res <= 2) {
-        return content;
-    }
-    var res = content.search("\t");
-    var spaceToTab = false;
-    // If we don't find any tabs, then we want to replace multiple spaces with tabs
-    if(res < 0) {
-        spaceToTab = true;
-    }
-    // remove blank lines
-    var lines = content.trim().split("\n");
-    var newContent = "";
-    for(var i = 0; i < lines.length; i++) {
-        var newLine = lines[i].trim();
-//        if(newLine.length == 0) {
-//            continue;
-//        }
-        // If there are no spaces and the line isn't a comment, then replace more than one space with a tab
-        if(newLine[0] != "#" && spaceToTab) {
-            newLine = newLine.replace(/  */g, "\t");
-        }
-        // strip the extra tabs/spaces at the end of the line
-        newContent = newContent + newLine + "\n";
-    }
-    return newContent;
 }
 
 
@@ -661,8 +644,6 @@ function tableEditCell(loc) {
     console.log("!@", conllu);
     $("#indata").val(conllu);
  
-    // Draw tree 
-
     drawTree();
 }
 
@@ -692,7 +673,7 @@ function updateTable() {
         if(line[0] == '#') {
             $("#indataTable tbody").append('<tr style="display:none" id="table_"' + row + '"><td colspan="10"><span>' + line + '</span></td></tr>'); 
         } else if(line.split('\t').length != 10) { 
-            console.log('WEIRDNESS:', line.split('\t').length ,line);
+            // console.log('WEIRDNESS:', line.split('\t').length ,line);
             $("#indataTable tbody").append('<tr style="display:none" id="table_"' + row + '"><td colspan="10"><span>' + line + '</span></td></tr>'); 
         } else { 
             var lineRow = $("<tr>");

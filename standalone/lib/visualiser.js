@@ -8,9 +8,8 @@ var FANCY = "#cc22fc";
 var POS_COLOR = "#afa2ff";
 var ST_COLOR = "#bcd2ff"
 var SCROLL_ZOOM_INCREMENT = 0.05;
-var LOW_DIGITS = {0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅",
-6: "₆", 7: "₇", 8: "₈", 9: "₉", "-": "₋", "(" : "₍", ")" : "₎"};
 var TREE_ = {}; // This map allows us to address the Token object given an ID
+var VIEW_ENHANCED = false;
 
 var edgeHeight = 40;
 var defaultCoef = 1; // 0.7
@@ -19,11 +18,6 @@ var staggersize = 15;
 
 // require lib for CoNLL-U parsing
 var conllu = require("conllu");
-
-// var panzoom = require('cytoscape-panzoom');
-// panzoom(cytoscape);
-
-
 
 function conlluDraw(content) {
     /* Draw the tree. */
@@ -221,16 +215,13 @@ function findSupTokId(subtokens) {
 
 
 function toSubscript(str) {
+    var lowDigits = {0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅",
+    6: "₆", 7: "₇", 8: "₈", 9: "₉", "-": "₋", "(" : "₍", ")" : "₎"};
     var substr = "";
-//  This causes some error about jquery and "in" and length stuff.
-//    $.each(str, function(n, char) {
-//        var newChar = (LOW_DIGITS[char]) ? LOW_DIGITS[char] : char;
-//        substr += newChar;
-//    })
     for(var i = 0; i < str.length; i++) {
         var newChar = str[i];
-        if(newChar in LOW_DIGITS) {
-            newChar = LOW_DIGITS[newChar];
+        if(newChar in lowDigits) {
+            newChar = lowDigits[newChar];
         }
         substr += newChar;
     }

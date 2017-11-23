@@ -2,82 +2,59 @@
 
 var FORMAT = "";
 var FILENAME = 'ud-annotatrix-corpus.conllu'; // default name
-var ROOT = './lib/';
 var CONTENTS = "";
-var TEXTAREA_ROWS_DEFAULT = 20;
 var AVAILABLESENTENCES = 0;
 var LOCALSTORAGE_AVAILABLE = -1;
 var CURRENTSENTENCE = 0;
-var TABLE_VIEW = false;
-var TABLE_COLUMNS_HEADERS = {"ID":0,"FORM":1,"LEMMA":2,"UPOSTAG":3,"XPOSTAG":4,"FEATS":5,"HEAD":6,"DEPREL":7,"DEPS":8,"MISC":9};
-var TABLE_COLUMNS_VISIBILITY = {0:true,1:true,2:true,3:true,4:true,5:true,6:true,7:true,8:true,9:true};
 var RESULTS = [];
 var LOC_ST_AVAILABLE = false;
-var SERVER_RUNNING = false;
-var AMBIGUOUS = false;
-var VIEW_ENHANCED = false;
 var LABELS = [];
-
 
 function main() {
     /* Loads all the js libraries and project modules, then calles onReady.
     If server is running, makes a button for saving data.*/
-
+    var pathRoot = './lib/';
     head.js(
-        ROOT + 'ext/jquery-3.2.1.min.js',
-        ROOT + 'ext/jquery-ui-1.12.1/jquery-ui.min.js',
-        ROOT + 'ext/cytoscape.min.js',
-        ROOT + 'ext/undomanager.js',
-        ROOT + 'ext/popper.min.js',
-        ROOT + 'ext/jquery.autocomplete.js',
-        ROOT + 'ext/bootstrap.min.js',
-        ROOT + 'ext/l20n.js',
-
-        // CoNLL-U parser from https://github.com/FrancessFractal/conllu
-        ROOT + 'ext/conllu/conllu.js',
+        pathRoot + 'ext/jquery-3.2.1.min.js',
+        pathRoot + 'ext/jquery-ui-1.12.1/jquery-ui.min.js',
+        pathRoot + 'ext/cytoscape.min.js',
+        pathRoot + 'ext/undomanager.js',
+        pathRoot + 'ext/popper.min.js',
+        pathRoot + 'ext/jquery.autocomplete.js',
+        pathRoot + 'ext/bootstrap.min.js',
+        pathRoot + 'ext/l20n.js',
+        pathRoot + 'ext/conllu/conllu.js', // CoNLL-U parser from https://github.com/FrancessFractal/conllu
 
         // native project code
-        ROOT + 'CG2conllu.js',
-        ROOT + 'SD2conllu.js',
-        ROOT + 'Brackets2conllu.js',
-        ROOT + 'converters.js',
-        ROOT + 'gui.js',
-        ROOT + 'visualiser.js',
-        ROOT + 'validation.js',
-        ROOT + 'cy-style.js'
+        pathRoot + 'CG2conllu.js',
+        pathRoot + 'SD2conllu.js',
+        pathRoot + 'Brackets2conllu.js',
+        pathRoot + 'converters.js',
+        pathRoot + 'server_support.js',
+        pathRoot + 'gui.js',
+        pathRoot + 'conllu_table.js',
+        pathRoot + 'visualiser.js',
+        pathRoot + 'validation.js',
+        pathRoot + 'cy-style.js'
     );
 
     head.ready(onReady);
-
-    // if server is running, make a button for saving data on server
-    setTimeout(function(){
-        if (SERVER_RUNNING) {
-            $("#save").css("display", "block")
-                      .css("background-color", NORMAL);
-        }
-    }, 500);
 }
 
 
 function onReady() {
     /*
-    Called when all the naive code and libraries are loded.
+    Called when all the naive code and libraries are loaded.
     - checks if server is running
     - sets undo manager
     - loads data from localStorage, if avaliable
     - checks if someone loads data in url
     - binds handlers to DOM emements
     */
-    fetch('running').then(
-        function(data) {
-            console.log("Response from server, status: " + data["status"]);
-            getCorpusData();
-            SERVER_RUNNING = true;
-        }); // TODO: to get rid of the error, read about promisses: https://qntm.org/files/promise/promise.html
 
+    checkServer() // check if server is running
     window.undoManager = new UndoManager();  // undo support
     setUndos(window.undoManager);
-
     loadFromLocalStorage(); // trying to load the corpus from localStorage
     loadFromUrl();
     bindHanlers()
@@ -117,6 +94,7 @@ function bindHanlers() {
 
     $("#indata").bind("keyup", drawTree);
     $("#indata").bind("keyup", focusOut);
+    $("#indata").bind("keyup", fitTable);
     $("#RTL").on("click", switchRtlMode);
     $("#vertical").on("click", switchAlignment);
     $("#enhanced").on("click", switchEnhanced);
@@ -134,40 +112,34 @@ function bindCyHandlers() {
     cy.on('click', '$node > node', selectSup);
     cy.on('cxttapend', 'node.wf', changeNode);
     cy.on('click', 'edge.dependency', changeNode);
-    cy.on('zoom', changeZoom);
+    cy.on('zoom', cy.center); // center the view port when the page zoom is changed
 }
 
-
-function changeZoom() {
-    console.log('zoom event');
-//if(event.shiftKey) {
-//    console.log('zoom event+SHIFT');
-//}
-    cy.center();
-}
 
 function loadFromUrl(argument) {
-    //check if the URL contains arguments
+    /* Check if the URL contains arguments. If it does, takes first
+    and writes it to the textbox. */
 
     var parameters = window.location.search.slice(1);
-    parameters = parameters.split('&')[1]
     if (parameters){
-        var variables = parameters.map(function(arg){
-            return arg.split('=')[1].replace(/\+/g, " ");
-        });
+        parameters = parameters.split('&')
+        var variables = parameters.map(
+            function(arg){
+                return arg.split('=')[1].replace(/\+/g, " ");
+            })
 
-        $("#indata").val(variables[0]);
-
+        $("#indata").val(variables);
         drawTree();
     }
 }
 
 
-//Load Corpora from file
 function loadFromFile(e) {
+    /* loads a corpus from a file from the user's computer,
+    changes the FILENAME variable. */
     CONTENTS = "";
     var file = e.target.files[0];
-    FILENAME = file.name;
+    FILENAME = file.name; // TODO: you can get rid of FILENAME if you store it in localStorage
 
     // check if the code is invoked
     var ext = FILENAME.split(".")[FILENAME.split(".").length - 1]; // TODO: should be more beautiful way
@@ -188,15 +160,17 @@ function loadFromFile(e) {
 }
 
 
-function addSent() {
+function addSent() { // TODO: this is probably not what we want? what if we turn it into "insert a new sentence _here_"?
         AVAILABLESENTENCES = AVAILABLESENTENCES + 1;
         showDataIndiv();
 }
 
 function removeCurSent() {
+    /* Called when the button "remove sentence" is pressed.
+    Calls confirm window. If affirmed, */
     var conf = confirm("Do you want to remove the sentence?");
     if (conf) {
-        var curSent = CURRENTSENTENCE;
+        var curSent = CURRENTSENTENCE; // это нужно, т.к. в loadDataInIndex всё переназначается. это как-то мега костыльно, и надо исправить.
         $("#indata").val("");
         CONTENTS = getTreebank();
         loadDataInIndex();
@@ -371,32 +345,68 @@ function getTreebank() {
 }
 
 
+
 function drawTree() {
-    // This function is called whenever the input area changes
-    //
-    try {
-        cy.destroy();
-    } catch (err) {};
+    /* This function is called whenever the input area changes.
+    1. removes the previous tree, if there's one
+    2. takes the data from the textarea
+    3. fits the size of table (consider moving to some other place)
+    4. */
 
-    var content = $("#indata").val();
-    // remove extra spaces at the end of lines. #89
-    content = content.replace(/ +\n/, '\n');
-    if(content.split('\n').length < TEXTAREA_ROWS_DEFAULT) {
-        $("#indata").attr('rows', content.split('\n').length+1);
-    } else {
-        $("#indata").attr('rows', TEXTAREA_ROWS_DEFAULT);
+    if (LOC_ST_AVAILABLE) {localStorage.setItem("corpus", getTreebank())} // update the corpus in localStorage
+    try {cy.destroy()} catch (err) {}; // remove the previous tree, if there is one
+
+    var content = $("#indata").val(); // TODO: rename
+
+    content = content.replace(/ +\n/, '\n'); // remove extra spaces at the end of lines. #89
+    $("#indata").val(content); // TODO: what is this line for?
+
+    var format = detectFormat(content);
+    $("#detected").html("Detected: " + format + " format");
+    formatTabsView(format);
+
+    if (format == "CG3") {
+        content = CG2conllu(content)
+        if (content == undefined) { // it means that the CG is ambiguous
+            cantConvertCG(); // showing the worning
+            return; // escaping
+        } else {
+            clearWarning();
+        }
+    } else if (format == "SD") {
+        content = SD2conllu(content)
+    } else if (format == "Brackets") {
+        content = Brackets2conllu(content)
+    } else if (format == "plain text" || format == "Unknown"){
+        return; // it neans, the format is either "plain text" or "Unknown" and it wasn't converted to conllu
     }
-    $("#indata").val(content);
-    FORMAT = detectFormat(content);
 
-    $("#detected").html("Detected: " + FORMAT + " format");
-    //console.log('drawTree() ' + FORMAT);
-    if (FORMAT == "CoNLL-U") {
+    var newContent = cleanConllu(content);
+    // If there are >1 CoNLL-U format sentences is in the input, treat them as such
+    conlluMultiInput(newContent);
+
+    if(newContent != content) {
+        content = newContent;
+        $("#indata").val(content);
+    }
+
+    conlluDraw(content);
+    var inpSupport = $("<div id='mute'>"
+        + "<input type='text' id='edit' class='hidden-input'/></div>");
+    $("#cy").prepend(inpSupport);
+    bindCyHandlers();
+}
+
+
+function formatTabsView(format) {
+    /* The function handles the format tabs above the textarea.
+    Takes a string with a format name, changes the classes on tabs. */
+    if (format == "CoNLL-U") {
         $("#viewOther").hide();
         $("#viewCG").removeClass("active");
         $("#viewOther").removeClass("active");
         $("#viewConllu").addClass("active");
-    } else if (FORMAT == "CG3") {
+    } else if (format == "CG3") {
         $("#viewOther").hide();
         $("#viewConllu").removeClass("active");
         $("#viewOther").removeClass("active");
@@ -406,54 +416,7 @@ function drawTree() {
         $("#viewOther").addClass("active");
         $("#viewConllu").removeClass("active");
         $("#viewCG").removeClass("active");
-        $("#viewOther").text(FORMAT);
-    }
-
-
-    if (FORMAT == "CG3") {
-        content = CG2conllu(content)
-        if (content == undefined) {
-            AMBIGUOUS = true;
-        } else {
-            AMBIGUOUS = false;
-        }
-    };
-
-    if (FORMAT == "SD") {
-        content = SD2conllu(content);
-    }
-
-    if (FORMAT == "Brackets") {
-        content = Brackets2conllu(content);
-    }
-
-
-    if (FORMAT == "CoNLL-U" || (FORMAT == "CG3" && !AMBIGUOUS) || FORMAT == "SD" || FORMAT == "Brackets") {
-        var newContent = cleanConllu(content);
-        // If there are >1 CoNLL-U format sentences is in the input, treat them as such
-        if(newContent.match(/\n\n/)) {
-            conlluMultiInput(newContent);
-        }
-        if(newContent != content) {
-            content = newContent;
-            $("#indata").val(content);
-        }
-
-        conlluDraw(content);
-        var inpSupport = $("<div id='mute'>"
-            + "<input type='text' id='edit' class='hidden-input'/></div>");
-        $("#cy").prepend(inpSupport);
-        bindCyHandlers();
-    }
-
-    if (LOC_ST_AVAILABLE) {
-        localStorage.setItem("corpus", getTreebank()); // saving the data
-    }
-
-    if (AMBIGUOUS) {
-        cantConvertCG();
-    } else {
-        clearWarning();
+        $("#viewOther").text(format);
     }
 }
 
@@ -541,49 +504,8 @@ function detectFormat(content) {
 }
 
 
-function saveOnServer(evt) {
-    var finalcontent = getTreebank();
-
-    // sending data on server
-    var treebank_id = location.href.split('/')[4];
-    $.ajax({
-        type: "POST",
-        url: '/save',
-        data: {
-            "content": finalcontent,
-            "treebank_id": treebank_id
-        },
-        dataType: "json",
-        success: function(data){
-            console.log('Load was performed.');
-        }
-    });
-}
-
-
-function getCorpusData() {
-    var treebank_id = location.href.split('/')[4];
-    $.ajax({
-        type: "POST",
-        url: "/load",
-        data: {"treebank_id": treebank_id},
-        dataType: "json",
-        success: loadData
-    });
-}
-
-
-function loadData(data) {
-    console.log("loadData");
-    if (data["content"]) {
-        CONTENTS = data["content"];
-    }
-    loadDataInIndex();
-}
-
-
 function showHelp() {
-    /* Opens help in a new tab. */
+    /* Opens help in the same tab. */
     var win = window.open("help.html", '_blank');
     win.focus();
 }
@@ -614,168 +536,11 @@ function storageAvailable(type) {
     }
 }
 
-function tableEditCell(loc) { 
-    // Yes I'm sorry I don't know Jquery, I'm sure this could be done much better.
-    loc = loc.trim();
-    var table = document.getElementById("indataTable");
-    var cell = document.getElementById(loc).innerHTML;
-    console.log("tableEditCell() " + loc + " " + cell);
 
-    // Update the CoNLL-U and set the value in the textbox 
-
-    var conllu = "";
-    
-    for (var r = 1, n = table.rows.length; r < n; r++) {
-        for (var c = 0, m = table.rows[r].cells.length; c < m; c++) {
-            var thisCell = table.rows[r].cells[c].childNodes[0].innerHTML;
-            if(thisCell.trim() == "") {
-                thisCell = "_";
-            }
-            thisCell = thisCell.replace(/<br>/, ''); // Get rid of extra spaces
-//            console.log("@" + table.rows[r].cells[c].innerHTML + " // " + thisCell);
-            if(c > 0) {
-              conllu = conllu + "\t" + thisCell;
-            } else {
-              conllu = conllu + thisCell;
-            }
-        }
-        conllu = conllu + "\n";
-    }
-    console.log("!@", conllu);
-    $("#indata").val(conllu);
- 
-    drawTree();
-}
-
-function toggleTableView() {
-    // This function toggles the table view
-    $("#tableViewButton").toggleClass('fa-code', 'fa-table');
-    $("#indata").toggle();
-    $("#indataTable").toggle();
-    if(TABLE_VIEW) {
-        TABLE_VIEW = false;
-    } else { 
-        TABLE_VIEW = true;
-    }
-}
-
-function updateTable() {
-    // Update the data in the table from the data in the textarea
-    $("#indataTable tbody").empty();
-    var conlluLines = $("#indata").val().split("\n");
-    var row = 0;
-
-    for(let line of conlluLines) {
-        if(line.trim() == "") {
-            continue;
-        }
-        //console.log(line);
-        if(line[0] == '#') {
-            $("#indataTable tbody").append('<tr style="display:none" id="table_"' + row + '"><td colspan="10"><span>' + line + '</span></td></tr>'); 
-        } else if(line.split('\t').length != 10) { 
-            // console.log('WEIRDNESS:', line.split('\t').length ,line);
-            $("#indataTable tbody").append('<tr style="display:none" id="table_"' + row + '"><td colspan="10"><span>' + line + '</span></td></tr>'); 
-        } else { 
-            var lineRow = $("<tr>");
-            var cells = line.split("\t");
-            for(var col = 0; col < 10; col++) {
-                var valid = [true, "", {}];
-                var loc = "table_" + row + ":" + col;
-                if(cells[col].trim() == "") { 
-                    cells[col] = "_";
-                } 
-                if(cells[col] != "_") {
-                    if(col == 3) {
-                        valid = is_upos(cells[col]);
-                    }
-                    if(col == 7) {
-                        valid = is_udeprel(cells[col]);
-                    }
-                }
-
-                let td = $("<td>");
-                let span0 = $('<span data-value="' + cells[col] + '"onBlur="updateTable();" onKeyUp="tableEditCell(\''+loc+'\');" id="' + loc + '" contenteditable>' + cells[col] + '</span>');
-                td.append(span0);
-                if(!valid[0]) { 
-                    let span1 = $('<span><i class="fa fa-exclamation-triangle" aria-hidden="true"></i></span>');
-                    document.l10n.formatValue(valid[1], valid[2]).then(function(t) { span1.attr("title", t);});
-                    td.append(span1);
-                }
-                lineRow.append(td);
-            }
-            $("#indataTable tbody").append(lineRow); 
-        }
-        row += 1;
-    }
-
-    // Make sure hidden columns stay hidden
-    // This could probably go in the for loop above
-    for(var col = 0; col < 10; col++) {
-        if(!TABLE_COLUMNS_VISIBILITY[col]) {
-            $("[id^=table_][id$=" + col+"]").css("display","none");
-        }
-    }
-// Sushain's original, more beautiful code:
-//    $("#indataTable tbody").append(
-//        $("#indata").val().split("\n")
-//            .filter(line => line.length && !line.startsWith("#"))
-//            .map(rowText => $("<tr>").append(
-//                rowText.split("\t").map(cellText => $("<td>").text(cellText))
-//            ))
-//    );
-}
-
-function toggleTableColumn(col) {
-   // Toggle the visibility of a table column. It only hides the values in the cells,
-   // not the column header. 
-   // @col = the column that was clicked
-
-   // the HTML id of the table cell is #table_<ROW>:<COLUMN>, the hash maps 
-   // from column ID to column offset
-   var colId = TABLE_COLUMNS_HEADERS[col];
-   var button = $("#tableCol_" + col).text();  // The text (e.g. dot)
-
-   console.log("toggleTableColumn() " + " " + col + " " + button);
-   // $("#tableCol_" + col).empty(); // Empty the text
-
-   $("#tableCol_" + col + " i").toggleClass("fa-angle-double-right", "fa-angle-double-left"); 
-   $("#tableHead_" + col).toggle();
-   $("[id^=table_][id$=" + colId+"]").toggle();
-   TABLE_COLUMNS_VISIBILITY[colId] = !TABLE_COLUMNS_VISIBILITY[colId] ;
-
-   if(button == "⚪") {  // If the column is currently hidden, make it visible
-     //$("#tableCol_" + col).append("⚫");
-     //$("#tableHead_" + col).css("display","inline-block");
-     //$("[id^=table_][id$=" + colId+"]").css("display","inline-block");
-     //TABLE_COLUMNS_VISIBILITY[colId] = true;
-   } else { // If the column is visible make it hidden
-     //$("#tableCol_" + col).append("⚪");
-     //$("#tableHead_" + col).css("display","none");
-     //$("[id^=table_][id$=" + colId+"]").css("display","none");
-     //TABLE_COLUMNS_VISIBILITY[colId] = false;
-   }
-
-   // TODO: Maybe use greying out of the headers in addition to/instead of 
-   // the filled/empty dots to indicate hidden or not
-}
-
-function toggleCodeWindow() {
-    $("#codeVisibleButton").toggleClass('fa-chevron-down', 'fa-chevron-up');
-    //console.log('toggleCodeWindow()');
-    $(".indataarea").toggle();
-    $("#tabBox").toggle();
-    $("#viewButton").toggle();
-    /**
-    if(TABLE_VIEW) {
-        $("#indataTable").toggle('show');
-    } else { 
-        $("#indata").toggle('show');
-    }
-    **/
-}
 
 function getLocalStorageMaxSize(error) {
-  // Returns the remaining available space in localStorage
+  /* Returns the remaining available space in localStorage */
+
   if (localStorage) {
     var max = 10 * 1024 * 1024,
         i = 64,
@@ -815,12 +580,6 @@ function getLocalStorageMaxSize(error) {
 
     LOCALSTORAGE_AVAILABLE = minimalFound;
   }
-}
-
-function focusOut(key) {
-    if (key.which == ESC) {
-        this.blur();
-    }
 }
 
 window.onload = main;

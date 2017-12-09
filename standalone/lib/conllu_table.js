@@ -57,7 +57,7 @@ function toggleTableView() {
     $("#indataTable").toggle();
     if(TABLE_VIEW) {
         TABLE_VIEW = false;
-    } else { 
+    } else {
         TABLE_VIEW = true;
     }
 }
@@ -168,11 +168,4 @@ function toggleCodeWindow() {
     $(".indataarea").toggle();
     $("#tabBox").toggle();
     $("#viewButton").toggle();
-    /**
-    if(TABLE_VIEW) {
-        $("#indataTable").toggle('show');
-    } else { 
-        $("#indata").toggle('show');
-    }
-    **/
 }

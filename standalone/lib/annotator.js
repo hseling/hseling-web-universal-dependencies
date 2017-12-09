@@ -47,7 +47,7 @@ function onReady() {
     Called when all the naive code and libraries are loaded.
     - checks if server is running
     - sets undo manager
-    - loads data from localStorage, if avaliable
+    - loads data from localStorage, if avaliable and server is not running
     - checks if someone loads data in url
     - binds handlers to DOM emements
     */
@@ -55,9 +55,24 @@ function onReady() {
     checkServer() // check if server is running
     window.undoManager = new UndoManager();  // undo support
     setUndos(window.undoManager);
-    loadFromLocalStorage(); // trying to load the corpus from localStorage
     loadFromUrl();
-    bindHanlers()
+    bindHanlers();
+    setTimeout(function(){ // setTimeout, because we have to wait checkServer to finish working
+        if (!SERVER_RUNNING) {
+            loadFromLocalStorage(); // trying to load the corpus from localStorage
+        }
+    }, 500)
+}
+
+
+function saveData() {
+    if (SERVER_RUNNING) {
+        saveOnServer()
+    } else {
+        if (LOC_ST_AVAILABLE) {
+            localStorage.setItem("corpus", getTreebank())
+        }
+    }
 }
 
 
@@ -95,6 +110,7 @@ function bindHanlers() {
     $("#indata").bind("keyup", drawTree);
     $("#indata").bind("keyup", focusOut);
     $("#indata").bind("keyup", fitTable);
+    $("#indata").bind("keyup", formatTabsView);
     $("#RTL").on("click", switchRtlMode);
     $("#vertical").on("click", switchAlignment);
     $("#enhanced").on("click", switchEnhanced);
@@ -170,6 +186,7 @@ function removeCurSent() {
     Calls confirm window. If affirmed, */
     var conf = confirm("Do you want to remove the sentence?");
     if (conf) {
+        saveData();
         var curSent = CURRENTSENTENCE; // это нужно, т.к. в loadDataInIndex всё переназначается. это как-то мега костыльно, и надо исправить.
         $("#indata").val("");
         CONTENTS = getTreebank();
@@ -218,9 +235,8 @@ function loadDataInIndex() {
 }
 
 function showDataIndiv() {
-    // This function is called each time the current sentence is changed to update
-    // the CoNLL-U in the textarea.
-    //console.log('showDataIndiv() ' + RESULTS.length + " // " + CURRENTSENTENCE);
+    /* This function is called each time the current sentence is changed
+    to update the CoNLL-U in the textarea. */
 
     if(RESULTS[CURRENTSENTENCE] != undefined) {
       document.getElementById('indata').value = (RESULTS[CURRENTSENTENCE]);
@@ -233,11 +249,15 @@ function showDataIndiv() {
         document.getElementById('currentsen').value = 0;
     }
     document.getElementById('totalsen').innerHTML = AVAILABLESENTENCES;
-    updateTable(); // Update the table view at the same time 
+    updateTable(); // Update the table view at the same time
+    formatTabsView(document.getElementById('indata')); // update the format taps
+    fitTable(); // make table's size optimal
     drawTree();
 }
 
 function goToSenSent() {
+    saveData();
+
     RESULTS[CURRENTSENTENCE] = document.getElementById("indata").value;
     CURRENTSENTENCE = parseInt(document.getElementById("currentsen").value) - 1;
     if (CURRENTSENTENCE < 0)  {
@@ -258,6 +278,8 @@ function goToSenSent() {
 }
 
 function prevSenSent() {
+    saveData();
+
     RESULTS[CURRENTSENTENCE] = document.getElementById("indata").value;
     CURRENTSENTENCE--;
     if (CURRENTSENTENCE < 0)  {
@@ -274,7 +296,9 @@ function prevSenSent() {
 }
 
 function nextSenSent() {
-    //When Navigate to next item
+    /* When the user navigates to the next sentence. */
+    saveData();
+
     RESULTS[CURRENTSENTENCE] = document.getElementById("indata").value;
     CURRENTSENTENCE++;
     if(CURRENTSENTENCE >= AVAILABLESENTENCES) {
@@ -350,20 +374,20 @@ function drawTree() {
     /* This function is called whenever the input area changes.
     1. removes the previous tree, if there's one
     2. takes the data from the textarea
-    3. fits the size of table (consider moving to some other place)
-    4. */
+    3. */
 
-    if (LOC_ST_AVAILABLE) {localStorage.setItem("corpus", getTreebank())} // update the corpus in localStorage
+    // TODO: update the sentence
     try {cy.destroy()} catch (err) {}; // remove the previous tree, if there is one
 
     var content = $("#indata").val(); // TODO: rename
 
+    // -- to be moved out-- 
     content = content.replace(/ +\n/, '\n'); // remove extra spaces at the end of lines. #89
     $("#indata").val(content); // TODO: what is this line for?
 
     var format = detectFormat(content);
     $("#detected").html("Detected: " + format + " format");
-    formatTabsView(format);
+    // to be moved out --
 
     if (format == "CG3") {
         content = CG2conllu(content)
@@ -381,14 +405,18 @@ function drawTree() {
         return; // it neans, the format is either "plain text" or "Unknown" and it wasn't converted to conllu
     }
 
-    var newContent = cleanConllu(content);
+
+    // -- to be moved out --
+    var newContent = cleanConllu(content); // TODO: move this one inside of this func
+
     // If there are >1 CoNLL-U format sentences is in the input, treat them as such
-    conlluMultiInput(newContent);
+    conlluMultiInput(newContent); // TODO: move this one also inside of this func, and make a separate func for calling them all at the same time 
 
     if(newContent != content) {
         content = newContent;
         $("#indata").val(content);
     }
+    // -- to be moved out -- 
 
     conlluDraw(content);
     var inpSupport = $("<div id='mute'>"
@@ -398,9 +426,10 @@ function drawTree() {
 }
 
 
-function formatTabsView(format) {
+function formatTabsView() {
     /* The function handles the format tabs above the textarea.
     Takes a string with a format name, changes the classes on tabs. */
+    var format = detectFormat($("#indata").val());
     if (format == "CoNLL-U") {
         $("#viewOther").hide();
         $("#viewCG").removeClass("active");

@@ -11,6 +11,10 @@ var SCROLL_ZOOM_INCREMENT = 0.05;
 var TREE_ = {}; // This map allows us to address the Token object given an ID
 var VIEW_ENHANCED = false;
 
+// Used for calculating progress
+var ALL_WORK = 0
+var DONE_WORK = 0
+
 var edgeHeight = 40;
 var defaultCoef = 1; // 0.7
 var staggersize = 15;
@@ -19,8 +23,25 @@ var staggersize = 15;
 // require lib for CoNLL-U parsing
 var conllu = require("conllu");
 
+var codeLateX = '';
+var png_exported = false;
+var latex_exported = false;
+
+function measureText(text) {
+    // actual canvas not created yet
+    var context = document.createElement("canvas").getContext("2d");
+    context.font = "1rem sans-serif";
+
+    text = text || "#"; // width for empty string
+    text = "." + text + "."; // minor padding
+    return context.measureText(text).width + "px";
+}
+
+/**
+ * Draws the tree.
+ * @param {String} content Content of the input textbox.
+ */
 function conlluDraw(content) {
-    /* Draw the tree. */
     var sent = new conllu.Sentence();
     sent.serial = content;
     changeBoxSize(sent);
@@ -36,14 +57,14 @@ function conlluDraw(content) {
         zoomingEnabled: true,
         userZoomingEnabled: false,
         wheelSensitivity: 0.1,
-        layout: layout, 
+        layout: layout,
         style: CY_STYLE,
         elements: conllu2cy(sent)
     });
 
 //    if(content.split('\n').length > 10) {
-//          if(!VIEW_ENHANCED){ 
-              cleanEdges(); 
+//          if(!VIEW_ENHANCED){
+              cleanEdges();
 //          }
 //    }
 
@@ -65,11 +86,15 @@ function conlluDraw(content) {
     // console.log('[3] CURRENT_ZOOM:', CURRENT_ZOOM);
     cy.zoom(CURRENT_ZOOM);
     // console.log('[4] CURRENT_ZOOM:', CURRENT_ZOOM);
-    cy.center(); 
+    cy.center();
     $(window).bind('resize', onResize);
     $(window).bind('DOMMouseScroll wheel', onScroll);
 }
 
+/**
+ * Resizes the visualiser window.
+ * @param {Object} e Event.
+ */
 function onResize(e) {
     CURRENT_ZOOM = cy.zoom(); // Get the current zoom factor.
     console.log('< resize event', CURRENT_ZOOM, cy.width(), cy.height());
@@ -77,26 +102,34 @@ function onResize(e) {
     cy.fit();
     cy.resize();
     cy.reset();
-    
+
     CURRENT_ZOOM = cy.zoom(); // Get the current zoom factor.
 //    cy.center();
 //    CURRENT_ZOOM = cy.zoom();
     console.log('[7] CURRENT_ZOOM:', CURRENT_ZOOM);
     console.log('> resize event', CURRENT_ZOOM, cy.width(), cy.height());
+
+    if(!VERT_ALIGNMENT) {
+        $("#cy").css("height", $(window).height()-$(".inarea").height()-80);
+    }
 }
 
+/**
+ * Detects if the user is shift-scrolling and zooms.
+ * @param  {Object}  event  Key Event.
+ * @return {Boolean}        False.
+ */
 function onScroll(event) {
-    
     if(event.shiftKey) {
       // console.log('SHIFT SCROLL', event.shiftKey, event.originalEvent.wheelDelta, event.originalEvent.detail, event.originalEvent.deltaY);
       if(event.originalEvent.wheelDelta > 0 || event.originalEvent.detail < 0 || event.originalEvent.deltaY < 0) { // up
           //console.log('SHIFT SCROLL', event.shiftKey, 'UP', CURRENT_ZOOM);
-          CURRENT_ZOOM += SCROLL_ZOOM_INCREMENT; 
+          CURRENT_ZOOM += SCROLL_ZOOM_INCREMENT;
           cy.zoom(CURRENT_ZOOM);
           cy.center();
       } else { //down
           //console.log('SHIFT SCROLL', event.shiftKey, 'DOWN', CURRENT_ZOOM);
-          CURRENT_ZOOM -= SCROLL_ZOOM_INCREMENT; 
+          CURRENT_ZOOM -= SCROLL_ZOOM_INCREMENT;
           cy.zoom(CURRENT_ZOOM);
           cy.center();
       }
@@ -108,25 +141,31 @@ function onScroll(event) {
     //  return;
 }
 
+/**
+ * Changes the size of the cytoscape viewport.
+ * @param {Object} sent A conllu.Sentence().
+ */
 function changeBoxSize(sent) {
-    // Changes the size of the cytoscape viewport
     var length = sent.tokens.length;
     if (VERT_ALIGNMENT) {
         //$("#cy").css("width", "1500px");
         $("#cy").css("width", $(window).width()-10);
         $("#cy").css("height", (length * 50) + "px");
     } else {
-        //$("#cy").css("width", "1500px");
-        $("#cy").css("width", $(window).width()-10);
-        $("#cy").css("height", "400px");
+        // scales width according to viewport
+        $("#cy").css("width", "100%");
+        // window height - height of top area - height of controls
+        $("#cy").css("height", $(window).height()-$(".inarea").height()-80);
     }
 }
 
-
+/**
+ * Layout nodes on a grid, condense means.
+ * @return {Object} A tree containing formatting.
+ */
 function formLayout() {
-    //  Layout nodes on a grid, condense means 
-    var layout = {name: "tree", 
-                    padding: 0, 
+    var layout = {name: "tree",
+                    padding: 0,
                     nodeDimensionsIncludeLabels: false
     };
     if (VERT_ALIGNMENT) {
@@ -143,9 +182,11 @@ function formLayout() {
     return layout;
 }
 
-
+/**
+ * Changes the edge style based on alignment.
+ */
 function changeEdgeStyle() {
-    var depEdgeStyle = CY_STYLE[11]["style"];
+    var depEdgeStyle = CY_STYLE[12]["style"];
     if (VERT_ALIGNMENT) {
         depEdgeStyle["text-margin-y"] = 0;
         depEdgeStyle["text-background-opacity"] = 1;
@@ -169,6 +210,18 @@ function changeEdgeStyle() {
     }
 }
 
+function showProgress() {
+    var progressPercentage = DONE_WORK/(ALL_WORK-1)*100;
+    $('#progressBar').animate({
+        width: progressPercentage + '%'
+    });
+}
+
+/**
+ * Creates a graph out of the conllu.Sentence().
+ * @param  {Object} sent A conllu.Sentence().
+ * @return {Array}       Returns the graph.
+ */
 function conllu2cy(sent) {
     var graph = [];
     TREE_ = {};
@@ -205,15 +258,160 @@ function conllu2cy(sent) {
     })
     }
 
+    ALL_WORK = 0;
+    DONE_WORK = 0;
+    for(var i = 0; i < graph.length; i++) {
+        if(graph[i].classes == 'wf') {
+            ALL_WORK += 2;
+            if(graph[i].data.head != undefined) {
+                DONE_WORK += 1;
+            }
+            if(graph[i].data.upostag != undefined) {
+                DONE_WORK += 1;
+            }
+        } else if(graph[i].classes.indexOf('dependency') != -1) {
+            ALL_WORK++;
+            if(graph[i].classes != 'dependency incomplete') {
+                DONE_WORK++;
+            }
+        }
+    }
+    codeLateX = generateLateX(graph);
+
     return graph;
 }
 
+function exportSVG() {
+    $('#exportModal').find('#exportedGraph').css('display', 'none');
+    $('#exportModal').find('#latexExportError').css('display', 'none');
+    $('#exportModal').find('#exportLATEX-textarea').css('display', 'none');
+
+    var ctx = new C2S(cy.width, cy.height);
+    cy.renderer().renderTo(ctx);
+    var ctxSerializedSVG = ctx.getSerializedSvg();
+    
+    $('#exportModal').find('#svgResult').attr('src', 'data:image/svg+xml;charset=utf-8,'+ctxSerializedSVG);
+
+    $('#exportModal').find('#svgResult').css('display', 'inline');
+}
+
+function exportPNG() {
+    $('#exportModal').find('#svgResult').css('display', 'none');
+    $('#exportModal').find('#latexExportError').css('display', 'none');
+    $('#exportModal').find('#exportLATEX-textarea').css('display', 'none');
+
+    var b64key = 'base64,';
+    var b64 = cy.png().substring( cy.png().indexOf(b64key) + b64key.length);
+    var imgBlob = b64toBlob(b64, 'image/png');
+
+    $('#exportModal').find('#exportedGraph').attr('src', URL.createObjectURL(imgBlob));
+    $('#exportModal').find('#exportedGraph').css('width', '100%');
+
+    $('#exportModal').find('#exportedGraph').css('display', 'inline');
+}
+
+function b64toBlob(b64Data, contentType, sliceSize) {
+    contentType = contentType || '';
+    sliceSize = sliceSize || 512;
+
+    var byteCharacters = atob(b64Data);
+    var byteArrays = [];
+
+    for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+        var slice = byteCharacters.slice(offset, offset + sliceSize);
+
+        var byteNumbers = new Array(slice.length);
+        for (var i = 0; i < slice.length; i++) {
+            byteNumbers[i] = slice.charCodeAt(i);
+        }
+
+        var byteArray = new Uint8Array(byteNumbers);
+
+        byteArrays.push(byteArray);
+    }
+
+    var blob = new Blob(byteArrays, {type: contentType});
+    return blob;
+}
+
+
+function exportLATEX() {
+    $('#exportModal').find('#exportLATEX-textarea').val('');
+
+    $('#exportModal').find('#exportLATEX-textarea').css('display', 'none');
+    $('#exportModal').find('#svgResult').css('display', 'none');
+    $('#exportModal').find('#latexExportError').css('display', 'none');
+    $('#exportModal').find('#exportedGraph').css('display', 'none');
+
+    if(codeLateX == 'error') {
+        $('#exportModal').find('#latexExportError').css('display', 'inline');
+    } else {
+        $('#exportModal').find('#exportLATEX-textarea').val(codeLateX.join('\n'));
+        if($('#exportModal').find('#exportLATEX-textarea').attr("rows") > codeLateX.length) {
+            $('#exportModal').find('#exportLATEX-textarea').attr('rows', codeLateX.length + 2);
+        } else {
+            $('#exportModal').find('#exportLATEX-textarea').attr('rows', $('#exportModal').find('#exportLATEX-textarea').attr("rows"));
+        }
+        $('#exportModal').find('#exportLATEX-textarea').css('display', 'inline');
+    }
+}
+
+function generateLateX(graph) {
+
+    var latexLines = [];
+
+    var tokensLine = '';
+    var posLine = '';
+    var deprelLines = [];
+    for(var i = 0; i < graph.length; i++) {
+        if(graph[i].classes.indexOf('wf') !== -1) {
+            if(graph[i].data.upostag == undefined) {
+                return 'error';
+            }
+            tokensLine += ' \\& ' + graph[i].data.label;
+            posLine += '\\&{\\tt ' + graph[i].data.upostag + '}';
+        }
+
+        if(graph[i].classes == 'dependency' || graph[i].classes == 'dependency error') {
+            if(graph[i].data.label == undefined) {
+                return 'error';
+            }
+            var source = parseInt(graph[i].data.source.replace('nf', ''));
+            var target = parseInt(graph[i].data.target.replace('nf', ''));
+            var label = ''
+            if(graph[i].data.label != undefined) {
+                label = graph[i].data.label.replace(/[⊳⊲]/, '');
+            }
+            deprelLines.push('\depedge{' + source + '}{' + target + '}' + '{' + label + '}');
+        }
+    }
+    tokensLine += ' \\\\';
+    tokensLine = tokensLine.replace('\\&', '');
+
+    posLine += '\\\\';
+    posLine = posLine.replace('\\&', '');
+
+    latexLines.push('\\begin{dependency}',
+                    '   \\begin{deptext}[column sep=0.4cm]');
+    latexLines.push('       ' + tokensLine);
+    latexLines.push('       ' + posLine);
+    latexLines.push('   \\end{deptext}');
+    for(var i = 0; i < deprelLines.length; i++) {
+        latexLines.push('   \\' + deprelLines[i]);
+    }
+    latexLines.push('\\end{dependency} \\\\');
+    return latexLines;
+}
 
 function findSupTokId(subtokens) {
     return subtokens[0].id + "-" + subtokens[subtokens.length - 1].id;
 }
 
-
+/**
+ * Converts a string to subscripts.
+ * @param  {String} str A string.
+ * @return {String}     Returns the subscript conversion of the string.
+ */
 function toSubscript(str) {
     var lowDigits = {0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅",
     6: "₆", 7: "₇", 8: "₈", 9: "₉", "-": "₋", "(" : "₍", ")" : "₎"};
@@ -228,7 +426,13 @@ function toSubscript(str) {
     return substr;
 }
 
-
+/**
+ * Creates the wf node, the POS node and dependencies.
+ * @param  {Array}  graph  A graph containing all the nodes and dependencies.
+ * @param  {Object} token  Token object.
+ * @param  {String} spId   Id of supertoken.
+ * @return {Array}         Returns the graph.
+ */
 function createToken(graph, token, spId) {
     //console.log('createToken() '+ token.id + ' / ' + spId + ' / ' + token.form + ' / ' + token.upostag);
     /* Takes the tree graph, a token object and the id of the supertoken.
@@ -237,7 +441,7 @@ function createToken(graph, token, spId) {
     // handling empty form
     // if (spId) {token.form = token.lemma};
     if (token.form == undefined) {token.form = " "};
- 
+
     // TODO: We shouldn't need to hold information in multiple places
     // at least not like this.
     TREE_[token.id] = token;
@@ -256,10 +460,7 @@ function createToken(graph, token, spId) {
 
     var nodeWF = token;
     // nodeWF.parent = spId;
-    nodeWF.length = nodeWF.form.length + "em";
-    if(nodeWF.form.length > 3) {
-      nodeWF.length = nodeWF.form.length*0.7 + "em";
-    }
+    nodeWF.length = measureText(nodeWF.form);
     nodeWF.id = "nf" + nodeId;
     nodeWF.label = nodeWF.form;
     nodeWF.state = "normal";
@@ -278,7 +479,7 @@ function createToken(graph, token, spId) {
     if(!VIEW_ENHANCED) {
         graph = makeDependencies(token, nodeId, graph);
     }
- 
+
 
     return graph;
 }
@@ -312,8 +513,14 @@ function makeEnhancedDependency(token, nodeId, head, deprel, graph) {
     return graph;
 }
 
+/**
+ * Creates edges for dependency if head exists.
+ * @param  {Object} token  Token object.
+ * @param  {String} nodeId Id of node.
+ * @param  {Array}  graph  A graph containing all the nodes and dependencies.
+ * @return {Array}         Returns the graph.
+ */
 function makeDependencies(token, nodeId, graph) {
-	/* if there is head, create an edge for dependency */
 	var deprel = (token.deprel) ? token.deprel : "";
 	var head = token.head; // The id of the head
 
@@ -327,22 +534,22 @@ function makeDependencies(token, nodeId, graph) {
 		// mark it as an error.
 		var res = is_leaf(TREE_[head].upostag);
 		if(res[0]) {
-			console.log('[1] writeDeprel @valid=false ' + deprel + ' // ' + res[1]);
+			// console.log('[1] writeDeprel @valid=false ' + deprel + ' // ' + res[1]);
 			validDep = false;
 		}
 	}
 
-	if(deprel != "") { 
+	if(deprel != "") {
 		var res = is_udeprel(deprel);
 		if(!res[0]) {
-			// if the deprel is not valid, mark it as an error, but 
-			// don't mark it as an error if it's blank. 
-			console.log('[2] writeDeprel @valid=false ' + deprel + ' // ' + res[1]);
+			// if the deprel is not valid, mark it as an error, but
+			// don't mark it as an error if it's blank.
+			// console.log('[2] writeDeprel @valid=false ' + deprel + ' // ' + res[1]);
 			validDep = false;
 		}
 	}
 
-	// Append ⊲ or ⊳ to indicate direction of the arc (helpful if 
+	// Append ⊲ or ⊳ to indicate direction of the arc (helpful if
 	// there are many arcs.
 	var deprelLabel = deprel;
 	if(parseInt(head) < parseInt(nodeId) && LEFT_TO_RIGHT) {
@@ -364,7 +571,7 @@ function makeDependencies(token, nodeId, graph) {
 			"length": (deprelLabel.length / 3) + "em",
 			"label": deprelLabel,
 			"ctrl": [edgeHeight, edgeHeight, edgeHeight, edgeHeight] // ARC HEIGHT STUFFS
-			
+
 		}
 		var coef = (head - nodeId);
 		if (!LEFT_TO_RIGHT) {coef *= -1}; // support for RTL
@@ -377,7 +584,6 @@ function makeDependencies(token, nodeId, graph) {
                 //    validDep = false;
                 //    console.log('WARNING: Non-projective punctuation');
                 //}
-
 		// if it's not valid, mark it as an error (see cy-style.js)
 		if(validDep && deprel != "" && deprel != undefined) {
 			graph.push({"data": edgeDep, "classes": "dependency"});
@@ -390,7 +596,41 @@ function makeDependencies(token, nodeId, graph) {
 			//console.log("makeDependencies(): error @" + deprel);
 		}
 
-		var res = is_cyclic(TREE_);
+
+                // If dependency cycle exists, mark the cycle as red.
+                var res2 = is_depend_cycles(TREE_);
+                if (res2 !== null) {
+                    for(var cycl = 0; cycl < res2.length; cycl++) {
+                        for (var cycleInd = 0; cycleInd < res2[cycl].length; cycleInd++) {
+                            var wrapInd = cycleInd + 1 >= res2[cycl].length ? 0 : cycleInd + 1;
+                            for (var graphInd = 0; graphInd < graph.length; graphInd++) {
+                                if(graph[graphInd].data.source !== undefined && graph[graphInd].data.target !== undefined && parseInt(graph[graphInd].data.target.substr(2)) === res2[cycl][cycleInd] && parseInt(graph[graphInd].data.source.substr(2)) === res2[cycl][wrapInd]) {
+                                    graph[graphInd].classes = "dependency error";
+                                }
+                            }
+                        }
+                    }
+                }
+
+                var res3 = is_relation_conflict(TREE_);
+                for (var graphInd = 0; graphInd < graph.length; graphInd++) {
+                    if(graph[graphInd].classes.substring(0,10) === "dependency") {
+                        var graphLabel = graph[graphInd].data.label;
+                        var graphSource = String(parseInt(graph[graphInd].data.source.substring(2)));
+                        if(res3.has(graphSource)) {
+                            var conflicts = res3.get(graphSource);
+                            if(conflicts.indexOf("obj") !== -1 && (graphLabel === "obj⊳" || graphLabel === "⊲obj")) {
+                                graph[graphInd].classes = "dependency error";
+                            }
+                            if(conflicts.indexOf("subj") !== -1 && (graphLabel === "csubj⊳" || graphLabel === "⊲csubj" || graphLabel === "⊲nsubj" || graphLabel === "nsubj⊳")) {
+                                graph[graphInd].classes = "dependency error";
+                            }
+                        }
+                        if(res3.has("objccomp") && (graphLabel === "obj⊳" || graphLabel === "⊲obj" || graphLabel === "ccomp⊳" || graphLabel === "⊲ccomp")) {
+                                graph[graphInd].classes = "dependency error";
+                        }
+                    }
+                }
 		/*if(!res[0]) {
 			//console.log('[3] writeDeprel is_cyclic=true');
 		} else {
@@ -401,6 +641,13 @@ function makeDependencies(token, nodeId, graph) {
 	return graph;
 }
 
+/**
+ * Creates nodes for POS and edges between wf and POS nodes.
+ * @param  {Object} token  Token object.
+ * @param  {String} nodeId Id of node.
+ * @param  {Array}  graph  A graph containing all the nodes and dependencies.
+ * @return {Array}         Returns the graph.
+ */
 function makePOS(token, nodeId, graph) {
     /* Creates nodes for POS and edges between wf and POS nodes */
 
@@ -415,7 +662,7 @@ function makePOS(token, nodeId, graph) {
     var nodePOS = {
         "id": "np" + nodeId,
         "label": pos,
-        "length": (pos.length + 1) + "em"
+        "length": measureText(pos)
     }
     graph.push({"data": nodePOS, "classes": "pos"});
 
@@ -434,6 +681,10 @@ function makePOS(token, nodeId, graph) {
 /**
  * Creates a range of numbers in an array, starting at a specified number and
  * ending before a different specified number.
+ * @param  {Number} start  Beginning number.
+ * @param  {Number} finish Ending number.
+ * @param  {Number} step   Step size.
+ * @return {Array}         A range from start to finish with a certain step size
  */
 function rangeExclusive(start, finish, step) {
 	// If only one number was passed in make it the finish and 0 the start.
@@ -441,7 +692,7 @@ function rangeExclusive(start, finish, step) {
 		finish = start;
 		start = 0;
 	}
-	
+
 	// Validate the finish and step numbers.
 	finish = finish || 0;
 	step = step || 1;
@@ -462,6 +713,9 @@ function rangeExclusive(start, finish, step) {
 	return ret;
 }
 
+/**
+ * Makes the dependency edges easier to see and overlap less.
+ */
 function cleanEdges() {
 	var sources = {}
 	var edges = {}
@@ -570,14 +824,21 @@ function cleanEdges() {
 		thisHeight += verticalStagger;
 		//setEdgePosition(thisEdge, thisHeight, 1);
 	});
-
 }
 
+/**
+ * Sets the position of an edge.
+ * @param {Object} thisEdge   The edge being positioned.
+ * @param {Number} thisHeight The height the edge should be positioned at.
+ * @param {Number} coef       The direction the edge is going: either -1 or 1.
+ * @param {Number} diff       How far the edge stretches between nodes.
+ */
 function setEdgePosition(thisEdge, thisHeight, coef, diff) {
 	if (!LEFT_TO_RIGHT) {coef *= -1}; // support for RTL
-	if (VERT_ALIGNMENT) {edgeDep.ctrl = [45, 45, 45, 45]};
+	//if (VERT_ALIGNMENT) {edgeDep.ctrl = [45, 45, 45, 45]};
 	//if (Math.abs(coef) != 1) {coef *= defaultCoef};
-	
+  if(VERT_ALIGNMENT) {thisHeight += 30} // so the ctrl points are better placed
+
 	thisHeight *= coef;
 
 	//console.log(thisEdge);
@@ -587,7 +848,7 @@ function setEdgePosition(thisEdge, thisHeight, coef, diff) {
 	var factor4 = 10 * (edgeHeight/(Math.abs(thisHeight)));
 	var factor = factor4;
 
-	console.log("setEdgePosition()", thisHeight, coef, factor);
+	// console.log("setEdgePosition()", thisHeight, coef, factor);
 	if (diff == 1) {
 		thisEdge.style({"control-point-weights": "0.15 0.25 0.75 1"});
 		thisEdge.data({'ctrl': [thisHeight/1.25, thisHeight, thisHeight, thisHeight]});
@@ -595,8 +856,15 @@ function setEdgePosition(thisEdge, thisHeight, coef, diff) {
 		thisEdge.style({"control-point-weights": String(0.01*factor)+" 0.25 0.75 1"});
 		thisEdge.data({'ctrl': [thisHeight, thisHeight, thisHeight, thisHeight]});
 	}
-	thisEdge.style({"source-endpoint": String(-10*coef)+"px -50%"});
-	thisEdge.style({"target-endpoint": String(0*coef)+"% -50%"});
+  if (!VERT_ALIGNMENT) {
+	  thisEdge.style({"source-endpoint": String(-10*coef)+"px -50%"});
+	  thisEdge.style({"target-endpoint": String(0*coef)+"% -50%"});
+  } else {
+    var sourceNum = String(parseInt(thisEdge.data('source').replace("nf", ""), 10)).length*10 + "px"
+    var targetNum = String(parseInt(thisEdge.data('target').replace("nf", ""), 10)).length*10 + "px"
+    thisEdge.style({"source-distance-from-node": sourceNum})
+    thisEdge.style({"target-distance-from-node": targetNum})
+  }
 
 	//edgeDep.ctrl = edgeDep.ctrl.map(function(el){ return el*coef; });
 }

@@ -8,6 +8,7 @@ var DEL_KEY = 46;
 var BACKSPACE = 8;
 var ENTER = 13;
 var ESC = 27;
+var TAB = 9;
 var RIGHT = 39;
 var LEFT = 37;
 var CURRENT_ZOOM = 1.0;
@@ -23,6 +24,7 @@ var S = 83;
 var R = 82;
 var M = 77;
 var SIDES = {39: "right", 37: "left"};
+var ISEDITING = false;
 var POS2RELmappings = {
 	"PUNCT": "punct",
 	"DET": "det",
@@ -88,9 +90,9 @@ function writeArc(sourceNode, destNode) {
     var idx = findConlluId(destNode)[1];
     var sent = buildSent();
     var tokens = sent.tokens;
-    console.log(idx + ' ' + tokens);
+    // console.log(idx + ' ' + tokens);
     var thisToken = tokens[idx];
-    console.log('writeArc ' + destIndex + ' ' + thisToken['upostag']); 
+    // console.log('writeArc ' + destIndex + ' ' + thisToken['upostag']); 
     var sentAndPrev = changeConlluAttr(sent, indices, "head", sourceIndex);
 
     // If the target POS tag is PUNCT set the deprel to @punct [99%]
@@ -172,23 +174,25 @@ function selectArc() {
     /* 
     Activated when an arc is selected. Adds classes showing what is selected.
     */
+    
+    if(!ISEDITING) {
+        // if the user clicked an activated node
+        if (this.hasClass("selected")) {
+            this.removeClass("selected");
 
-    // if the user clicked an activated node
-    if (this.hasClass("selected")) {
-        this.removeClass("selected");
+            // removing visual effects from destNode
+            var destNodeId = this.data("target");
+            cy.$("#" + destNodeId).removeClass("arc-selected");
 
-        // removing visual effects from destNode
-        var destNodeId = this.data("target");
-        cy.$("#" + destNodeId).removeClass("arc-selected");
+        } else {
+            this.addClass("selected");
+            var destNodeId = this.data("target"); // getting info about nodes
+            cy.$("#" + destNodeId).addClass("arc-selected"); // css for destNode
+        }
 
-    } else {
-        this.addClass("selected");
-        var destNodeId = this.data("target"); // getting info about nodes
-        cy.$("#" + destNodeId).addClass("arc-selected"); // css for destNode
+        // for identifying the node
+        cy.$("#" + destNodeId).data("state", "arc-dest");
     }
-
-    // for identifying the node
-    cy.$("#" + destNodeId).data("state", "arc-dest");
 }
 
 
@@ -201,7 +205,7 @@ function selectSup() {
 }
 
 
-function keyUpClassifier(key) {
+function keyDownClassifier(key) {
     // looking if there are selected arcs
     var selArcs = cy.$("edge.dependency.selected");  // + cy.$("edge.dependency.error");
     var destNodes = cy.$("node[state='arc-dest']");
@@ -220,11 +224,28 @@ function keyUpClassifier(key) {
     // looking if some node waits to be merged to supertoken
     var toSup = cy.$(".supertoken");
 
+    // $(document).bind('keydown', function(e) {
+    //     if (key.which == ESC) {
+    //         e.preventDefault();
+    //         drawTree();
+    //     }
+    // });
+    
+    if (key.which == ESC) {
+        key.preventDefault();
+        drawTree();
+    };
+    
+    var isEditFocused = $('#edit').is(':focus');
+    if(isEditFocused) {
+        if (key.which == TAB) {
+            key.preventDefault();
+        }
+    }
+    
     if (selArcs.length) {
         if (key.which == DEL_KEY || key.which == BACKSPACE) {
             removeArc(destNodes);
-        } else if (key.which == ESC) {
-            drawTree();
         } else if (key.which == D) {
             moveArc();
         };
@@ -324,7 +345,9 @@ function removeSup(st) {
 
 
 function changeNode() {
-    console.log("changeNode() " + Object.entries(this) + " // " + this.id());
+    // console.log("changeNode() " + Object.entries(this) + " // " + this.id());
+    
+    ISEDITING = true;
 
     this.addClass("input");
     var id = this.id().slice(0, 2);
@@ -363,7 +386,7 @@ function changeNode() {
     } else if(nodeType == "DEPREL") { 
         availableLabels = U_DEPRELS;
     }
-    console.log('availableLabels:', availableLabels);
+    // console.log('availableLabels:', availableLabels);
  
     // autocomplete
 
@@ -376,14 +399,17 @@ function changeNode() {
     $("#edit").css("top", param.y1)
         .css("left", param.x1)
         .css("height", param.h)
-        .css("width", param.w)
+        .css("width", param.w+35)
         //.css("background-color", param.color)
         .attr("value", this.data("label"))
         .addClass("activated")
         .addClass(id);
 
-
-    $("#edit").focus();
+    if(nodeType == "DEPREL") {
+        $("#edit").focus().select();
+    } else {
+        $("#edit").focus();
+    }
 
 }
 
@@ -416,7 +442,7 @@ function setRoot(wf) {
    var outerIndex = indices[1];
    var cur = parseInt(sent.tokens[outerIndex].id);
    var head = 0;
-   console.log('setRoot()', outerIndex, cur, head);
+   // console.log('setRoot()', outerIndex, cur, head);
    var sentAndPrev = changeConlluAttr(sent, indices, "deprel", "root");
    var sentAndPrev = changeConlluAttr(sent, indices, "head", head);
 
@@ -441,8 +467,8 @@ function writeDeprel(deprelInp, indices) { // TODO: DRY
     var outerIndex = indices[1];
     var cur = parseInt(sent.tokens[outerIndex].id);
     var head = parseInt(sent.tokens[outerIndex].head);
-    console.log('writeDeprel');
-    console.log(head + ' ' + cur);
+    // console.log('writeDeprel');
+    // console.log(head + ' ' + cur);
 
     var sentAndPrev = changeConlluAttr(sent, indices, "deprel", deprelInp);
     sent = sentAndPrev[0];
@@ -515,14 +541,13 @@ function changeConlluAttr(sent, indices, attrName, newVal) {
     return [sent, pervVal]
 }
 
-
 function writeWF(wfInp) {
     /* Either writes changes to token or retokenises the sentence. */
     var newToken = wfInp.val().trim();
 
     var active = cy.$(".input");
     var indices = findConlluId(active);
-    console.log(indices);
+    // console.log(indices);
     var isSubtoken = indices[0];
     var outerIndex = indices[1];
     var innerIndex = indices[2];
@@ -773,24 +798,29 @@ function viewAsPlain() { // TODO: DRY?
 
 
 function viewAsConllu() {
-    var text = $("#indata").val();
-    var currentFormat = detectFormat(text);
+    var curSent = $("#indata").val();
+    var currentFormat = detectFormat(curSent);
 
-	if ($("#viewOther").text() == "plain text" || $("#viewOther").text() == "SD") {
-		  toConllu();
-	}	
-
-    if (FORMAT == "plain text") {
-        loadDataInIndex(); // TODO: this will certainly cause unexpected behavior. refactor when you have time.
-    } else if (currentFormat == "CG3") {
-        text = CG2conllu(text);
-        if (text == undefined) {
+    if (currentFormat == "CG3") {
+        curSent = CG2conllu(curSent);
+        if (curSent == undefined) {
             cantConvertCG();
             return;
         }
         $("#viewCG").removeClass("active");
         $("#viewConllu").addClass("active");
-        $("#indata").val(text);
+        $("#indata").val(curSent);
+    } else {
+        var contents = getContents();
+        if (currentFormat == "plain text") {
+            contents = txtCorpus2Conllu(contents);
+            localStorage.setItem('corpus', contents);
+            loadDataInIndex();
+        } else if (currentFormat == "SD") {
+            // newContents = SD2Conllu(contents);
+            SD2Conllu(contents); // TODO: make it like for txt
+        }
+        localStorage.setItem('format', 'CoNLL-U');
     }
 }
 
@@ -875,7 +905,7 @@ function switchEnhanced() {
 $(document).ready(function(){
 	$('#currentsen').keyup(function(e){
 		if(e.keyCode == 13) {
-			goToSenSent();
+			goToSentence();
 		} else if(e.keyCode == UP || e.keyCode == K) {
 			prevSenSent();
 		} else if(e.keyCode == DOWN || e.keyCode == J) {
@@ -915,9 +945,22 @@ $(document).ready(function(){
 
 	$('#helpModal').on('shown.bs.modal', function(e) {
 		//alert('HARGLE BARGLE');
-                $("#treebankSize").text(CONTENTS.length); // TODO: Report the current loaded treebank size to user
+        // $("#treebankSize").text(CONTENTS.length); // TODO: Report the current loaded treebank size to user
 		$(e.target).find('.modal-body').load('help.html');
 	});
+    
+    $('#exportModal').on('shown.bs.modal', function(e) {
+		//alert('HARGLE BARGLE');
+        // $("#treebankSize").text(CONTENTS.length); // TODO: Report the current loaded treebank size to user
+		$(e.target).find('.modal-body').load('export.html', function() {
+            exportPNG(); 
+        });
+	});
+    
+    $('#exportModal').on('hidden.bs.modal', function (e) {
+        png_exported = false;
+        latex_exported = false;
+    });
 
 //	$('.ui-autocomplete').keydown(function(e) {
 //		if(e.keyCode == 9) { // Tab

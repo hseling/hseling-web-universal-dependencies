@@ -3,6 +3,7 @@
 var FORMAT = "";
 var FILENAME = 'ud-annotatrix-corpus.conllu'; // default name
 var CONTENTS = "";
+// var TEMPCONTENTS = "";
 var AVAILABLESENTENCES = 0;
 var LOCALSTORAGE_AVAILABLE = -1;
 var CURRENTSENTENCE = 0;
@@ -23,6 +24,7 @@ function main() {
         pathRoot + 'ext/jquery.autocomplete.js',
         pathRoot + 'ext/bootstrap.min.js',
         pathRoot + 'ext/l20n.js',
+        pathRoot + 'ext/canvas2svg.js',
         pathRoot + 'ext/conllu/conllu.js', // CoNLL-U parser from https://github.com/FrancessFractal/conllu
 
         // native project code
@@ -56,23 +58,39 @@ function onReady() {
     window.undoManager = new UndoManager();  // undo support
     setUndos(window.undoManager);
     loadFromUrl();
-    bindHanlers();
+    bindHandlers();
     setTimeout(function(){ // setTimeout, because we have to wait checkServer to finish working
         if (!SERVER_RUNNING) {
             loadFromLocalStorage(); // trying to load the corpus from localStorage
+        } else {
+            getSentence(1); // loading a sentence from the server
         }
     }, 500)
 }
 
 
-function saveData() {
+function saveData() { // TODO: rename to updateData
     if (SERVER_RUNNING) {
-        saveOnServer()
+        updateOnServer()
     } else {
-        if (LOC_ST_AVAILABLE) {
-            localStorage.setItem("corpus", getTreebank())
-        }
+        localStorage.setItem("corpus", getContents()); // TODO: get rid of 'corpus', move the treebank updating here from getContents
     }
+}
+
+
+function getContents() {
+    /* Gets the corpus data saving the changes in current sentence,
+    dependlessly of whether it's on server or in localStorage. */
+
+    // if (SERVER_RUNNING) {
+    //     // TODO: implement
+    // } else {
+    var splitted = localStorage.getItem('treebank'); // TODO: implement a more memory-friendly func?
+    splitted = JSON.parse(splitted); // string to array
+    splitted[CURRENTSENTENCE] = $("#indata").val();
+    localStorage.setItem('treebank', JSON.stringify(splitted)); // update the treebank
+    return splitted.join('\n\n');
+    // }
 }
 
 
@@ -101,15 +119,14 @@ function loadFromLocalStorage() {
 }
 
 
-function bindHanlers() {
+function bindHandlers() {
     /* Binds handlers to DOM elements. */
 
     // TODO: causes errors if called before the cy is initialised
-    $(document).keyup(keyUpClassifier);
+    $(document).keydown(keyDownClassifier);
 
     $("#indata").bind("keyup", drawTree);
     $("#indata").bind("keyup", focusOut);
-    $("#indata").bind("keyup", fitTable);
     $("#indata").bind("keyup", formatTabsView);
     $("#RTL").on("click", switchRtlMode);
     $("#vertical").on("click", switchAlignment);
@@ -150,6 +167,31 @@ function loadFromUrl(argument) {
 }
 
 
+function loadFromFileNew(e) { // WORKING ON THIS
+    /*
+    Loads a corpus from a file from the user's computer,
+    puts the filename into localStorage.
+    If the server is running, ... TODO
+    Else, loads the corpus to localStorage.
+    */
+    var file = e.target.files[0];
+    if (!file) {return}
+    var reader = new FileReader();
+    localStorage.setItem("filename", file.name);
+
+    reader.onload = function(e) {
+        if (SERVER_RUNNING) {
+            // TODO: do something
+        } else {
+            localStorage.setItem('corpus', e.target.result);
+            CONTENTS = localStorage.getItem('corpus');
+            loadDataInIndex();
+        }
+    }
+    reader.readAsText(file);
+}
+
+
 function loadFromFile(e) {
     /* loads a corpus from a file from the user's computer,
     changes the FILENAME variable. */
@@ -176,6 +218,54 @@ function loadFromFile(e) {
 }
 
 
+function formatUploadSize(fileSize) {
+    if(fileSize < 1024) {
+        return fileSize + ' B';
+    }
+    else if(fileSize >= 1024 && fileSize < 1048576) {
+        return (fileSize/1024).toFixed(1) + " kB";
+    }
+    else {
+        return (fileSize/1048576).toFixed(1) + " mB";
+    }
+}
+
+function isQuotaExceeded(e) {
+  var quotaExceeded = false;
+  if (e) {
+    if (e.code) {
+      switch (e.code) {
+        case 22:
+          quotaExceeded = true;
+          break;
+        case 1014:
+          // Firefox
+          if (e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+            quotaExceeded = true;
+          }
+          break;
+      }
+    } else if (e.number === -2147024882) {
+      // Internet Explorer 8
+      quotaExceeded = true;
+    }
+  }
+  return quotaExceeded;
+}
+
+// function handleUploadButtonPressed() {
+//     // Replaces current content
+//     CONTENTS = TEMPCONTENTS;
+//     localStorage.setItem("corpus", CONTENTS);
+//     getLocalStorageMaxSize()
+//     $("#localStorageAvailable").text(LOCALSTORAGE_AVAILABLE / 1024 + "k");
+//     loadDataInIndex();
+//     $("#uploadFileButton").attr("disabled", "disabled");
+//     $("#uploadFileSizeError").hide();
+//     $('#fileModal').modal('hide');
+// }
+
+
 function addSent() { // TODO: this is probably not what we want? what if we turn it into "insert a new sentence _here_"?
         AVAILABLESENTENCES = AVAILABLESENTENCES + 1;
         showDataIndiv();
@@ -189,7 +279,7 @@ function removeCurSent() {
         saveData();
         var curSent = CURRENTSENTENCE; // это нужно, т.к. в loadDataInIndex всё переназначается. это как-то мега костыльно, и надо исправить.
         $("#indata").val("");
-        CONTENTS = getTreebank();
+        localStorage.setItem('corpus', getContents());
         loadDataInIndex();
         CURRENTSENTENCE = curSent;
         if (CURRENTSENTENCE >= AVAILABLESENTENCES) {CURRENTSENTENCE--};
@@ -203,40 +293,46 @@ function loadDataInIndex() {
     AVAILABLESENTENCES = 0;
     CURRENTSENTENCE = 0;
 
-    if (FORMAT == "plain text") {
-        var splitted = CONTENTS.match(/[^ ].+?[.!?](?=( |$))/g);
-    // } else if (FORMAT == undefined) {
-    //     var splitted = [];
-    } else {
-        var splitted = CONTENTS.split("\n\n");
-    }
-
-    // console.log('loadDataInIndex |' + FORMAT + " | " + splitted.length)
-    for (var i = splitted.length - 1; i >= 0; i--) {
-        if (splitted[i].trim() === "") {
-            splitted.splice(i, 1);
-        }
-    }
+    var corpus = localStorage.getItem('corpus');
+    var splitted = splitIntoSentences(corpus);
+    localStorage.setItem('treebank', JSON.stringify(splitted));
+    RESULTS = splitted; // TODO: get rid of RESULTS
 
     AVAILABLESENTENCES = splitted.length;
-    //console.log('loadDataInIndex |' + FORMAT + " | AVAILABLESENTENCES = " + AVAILABLESENTENCES)
-
     if (AVAILABLESENTENCES == 1 || AVAILABLESENTENCES == 0) {
         document.getElementById('nextSenBtn').disabled = true;
     } else {
         document.getElementById('nextSenBtn').disabled = false;
     }
 
-    for (var i = 0; i < splitted.length; ++i) {
-        var check = splitted[i];
-        RESULTS.push(check);
-    }
     showDataIndiv();
 }
 
+
+function splitIntoSentences(corpus) {
+    /* Takes a string with the corpus and returns an array of sentences. */
+    var format = detectFormat(corpus);
+
+    // splitting
+    if (format == "plain text") {
+        var splitted = corpus.match(/[^ ].+?[.!?](?=( |$))/g);
+    } else {
+        var splitted = corpus.split("\n\n");
+    }
+
+    // removing empty lines
+    for (var i = splitted.length - 1; i >= 0; i--) {
+        if (splitted[i].trim() === "") {
+            splitted.splice(i, 1);
+        }
+    }
+    return splitted;
+}
+
+
 function showDataIndiv() {
     /* This function is called each time the current sentence is changed
-    to update the CoNLL-U in the textarea. */
+    to update the CoNLL-U in the textarea and the indices. */
 
     if(RESULTS[CURRENTSENTENCE] != undefined) {
       document.getElementById('indata').value = (RESULTS[CURRENTSENTENCE]);
@@ -254,6 +350,40 @@ function showDataIndiv() {
     fitTable(); // make table's size optimal
     drawTree();
 }
+
+
+function goToSentence() { // TODO: refactor goToSenSent and merge to this func
+    if (SERVER_RUNNING) {
+        // saveData();
+        console.log('goToSentence');
+        var sentNum = $('#currentsen').val();
+        getSentence(sentNum);
+    } else {
+        goToSenSent();
+    }
+}
+
+
+function prevSentence() { // TODO: refactor prevSenSent and merge to this func
+    if (SERVER_RUNNING) {
+        // saveData();
+        var sentNum = $('#currentsen').val() - 1;
+        getSentence(sentNum);
+    } else {
+        prevSenSent();
+    }
+}
+
+
+function nextSentence() {
+    if (SERVER_RUNNING) {
+        var sentNum = Number($('#currentsen').val()) + 1;
+        getSentence(sentNum);
+    } else {
+        nextSenSent();
+    }
+}
+
 
 function goToSenSent() {
     saveData();
@@ -324,14 +454,21 @@ function clearLabels() {
 
 function exportCorpora() {
     //Export Corpora to file
-    var finalcontent = getTreebank();
+    if (SERVER_RUNNING) {
+        console.log('exportCorpora');
+        downloadCorpus();
+    } else {    
+        var finalcontent = getContents();
 
-    var link = document.createElement('a');
-    var mimeType = 'text/plain';
-    document.body.appendChild(link); // needed for FF
-    link.setAttribute('download', FILENAME);
-    link.setAttribute('href', 'data:' + mimeType + ';charset=utf-8,' + encodeURIComponent(finalcontent));
-    link.click();
+        var link = document.createElement('a');
+        var mimeType = 'text/plain';
+        document.body.appendChild(link); // needed for FF
+        var fname = localStorage.getItem("filename");
+        if (!fname) {fname = 'ud-annotatrix-corpus.conllu'} // default name
+        link.setAttribute('download', fname);
+        link.setAttribute('href', 'data:' + mimeType + ';charset=utf-8,' + encodeURIComponent(finalcontent));
+        link.click();
+    }
 }
 
 
@@ -351,31 +488,15 @@ function clearCorpus() {
 }
 
 
-function getTreebank() {
-
-    RESULTS[CURRENTSENTENCE] = document.getElementById("indata").value;
-    var finalcontent = "";
-    // loop through all the trees
-    for(var x=0; x < RESULTS.length; x++){
-        // add them to the final file, but get rid of any trailing whitespace
-        finalcontent = finalcontent + RESULTS[x].trim();
-        // if it's not the last tree, add two ewlines (e.g. one blank line)
-        if(x != ((RESULTS.length)-1)){
-            finalcontent = finalcontent + "\n\n";
-        }
-    }
-    // output final newline
-    return finalcontent + "\n\n";
-}
-
-
-
 function drawTree() {
     /* This function is called whenever the input area changes.
     1. removes the previous tree, if there's one
     2. takes the data from the textarea
     3. */
-
+    
+    ISEDITING = false;
+    console.log('drawTree');
+    
     // TODO: update the sentence
     try {cy.destroy()} catch (err) {}; // remove the previous tree, if there is one
 
@@ -419,10 +540,12 @@ function drawTree() {
     // -- to be moved out -- 
 
     conlluDraw(content);
+    showProgress();
     var inpSupport = $("<div id='mute'>"
         + "<input type='text' id='edit' class='hidden-input'/></div>");
     $("#cy").prepend(inpSupport);
     bindCyHandlers();
+    saveData();
 }
 
 
@@ -457,7 +580,7 @@ function detectFormat(content) {
     content = content.trim();
 
     if(content == "") {
-        console.log('[0] detectFormat() WARNING EMPTY CONTENT');
+        // console.log('[0] detectFormat() WARNING EMPTY CONTENT');
         return  "Unknown";
     }
  

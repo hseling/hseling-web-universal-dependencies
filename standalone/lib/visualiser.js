@@ -27,16 +27,6 @@ var codeLateX = '';
 var png_exported = false;
 var latex_exported = false;
 
-function measureText(text) {
-    // actual canvas not created yet
-    var context = document.createElement("canvas").getContext("2d");
-    context.font = "1rem sans-serif";
-
-    text = text || "#"; // width for empty string
-    text = "." + text + "."; // minor padding
-    return context.measureText(text).width + "px";
-}
-
 /**
  * Draws the tree.
  * @param {String} content Content of the input textbox.
@@ -426,6 +416,10 @@ function toSubscript(str) {
     return substr;
 }
 
+function isUpperCase(str) {
+    return str === str.toUpperCase();
+}
+
 /**
  * Creates the wf node, the POS node and dependencies.
  * @param  {Array}  graph  A graph containing all the nodes and dependencies.
@@ -460,9 +454,19 @@ function createToken(graph, token, spId) {
 
     var nodeWF = token;
     // nodeWF.parent = spId;
-    nodeWF.length = measureText(nodeWF.form);
     nodeWF.id = "nf" + nodeId;
     nodeWF.label = nodeWF.form;
+// FAIL test: Kibbutzgrundarna kom från en miljö, som utmärktes av ett strängt patriarkaliskt system, där första budet löd:
+/*
+    if(isUpperCase(nodeWF.label)) {
+        nodeWF.length = nodeWF.label.length * 13;
+    } else {
+        nodeWF.length = nodeWF.label.length * 11;
+    }*/ 
+    nodeWF.length = nodeWF.form.length + "em";
+    if(nodeWF.form.length > 3) {
+      nodeWF.length = nodeWF.form.length*0.7 + "em";
+    }
     nodeWF.state = "normal";
 
     nodeWF.parent = "num" + nodeId;
@@ -612,6 +616,7 @@ function makeDependencies(token, nodeId, graph) {
                     }
                 }
 
+/*
                 var res3 = is_relation_conflict(TREE_);
                 for (var graphInd = 0; graphInd < graph.length; graphInd++) {
                     if(graph[graphInd].classes.substring(0,10) === "dependency") {
@@ -630,7 +635,7 @@ function makeDependencies(token, nodeId, graph) {
                                 graph[graphInd].classes = "dependency error";
                         }
                     }
-                }
+                }*/
 		/*if(!res[0]) {
 			//console.log('[3] writeDeprel is_cyclic=true');
 		} else {
@@ -662,7 +667,7 @@ function makePOS(token, nodeId, graph) {
     var nodePOS = {
         "id": "np" + nodeId,
         "label": pos,
-        "length": measureText(pos)
+        "length": (pos.length + 1) + "em"
     }
     graph.push({"data": nodePOS, "classes": "pos"});
 

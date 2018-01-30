@@ -3,6 +3,7 @@ This is the backend for the annotatrix tool. It allows to save a project
 on a server and load it when needed.
 """
 
+import sys
 from io import BytesIO
 from flask import Flask
 from flask import jsonify
@@ -17,6 +18,12 @@ from db import CorpusDB
 
 
 PATH_TO_CORPORA = 'corpora'
+
+welcome = '''
+*******************************************************************************
+* NOW POINT YOUR BROWSER AT: http://127.0.0.1:5316/                           *
+*******************************************************************************
+'''
 
 app = Flask(__name__, static_folder='../standalone', static_url_path='/annotatrix')
 
@@ -50,7 +57,7 @@ def load_sentence():
             sent, max_sent = db.get_sentence(sent_num)
             return jsonify({'content': sent, 'max': max_sent})
         else:
-            return jsonify({'content': 'something went wrong'})
+            return jsonify({'content': 'something wrong'})
     return jsonify()
 
 
@@ -104,9 +111,17 @@ def index():
 
 @app.route('/annotatrix/<treebank_id>')
 def corpus_page(treebank_id):
+    print('XX:',treebank_id, file=sys.stderr)
+    if '.' in treebank_id:
+        return send_from_directory('../standalone', treebank_id)
+#    if treebank_id == 'help.html':
+#        return send_from_directory('../standalone', 'help.html')
+#    if treebank_id == 'export.html':
+#        return send_from_directory('../standalone', 'export.html')
     return send_from_directory('../standalone', 'annotator.html')
 
 
 if __name__ == '__main__':
+    print(welcome)
     app.secret_key = 'toshcpri]7f2ba027b824h6[hs87nja5enact'
     app.run(debug = True, port = 5316)

@@ -907,9 +907,9 @@ $(document).ready(function(){
 		if(e.keyCode == 13) {
 			goToSentence();
 		} else if(e.keyCode == UP || e.keyCode == K) {
-			prevSenSent();
+			prevSentence();
 		} else if(e.keyCode == DOWN || e.keyCode == J) {
-			nextSenSent();
+			nextSentence();
 		} else if(e.keyCode == MINUS) {
 			removeCurSent();
 		} else if(e.keyCode == EQUALS ) {
@@ -924,11 +924,11 @@ $(document).ready(function(){
 		map[e.key] = e.type == 'keydown';
 		/* insert conditional here */
 		if(map["Shift"] && map["PageDown"]){
-			nextSenSent();
+			nextSentence();
 			map = [];
 			map["Shift"] = true; // leave Shift so that another event can be fired
 		}else if(map["Shift"] && map["PageUp"]){
-			prevSenSent();
+			prevSentence();
 			map = [];
 			map["Shift"] = true; // leave Shift so that another event can be fired
 		}else if(map["Control"] && map["z"]) {
@@ -941,16 +941,12 @@ $(document).ready(function(){
 		//return false;  // only needed if want to override all the shortcuts
 	}
 
-	//$('#helpModal').on('show.bs.modal', console.log);
-
 	$('#helpModal').on('shown.bs.modal', function(e) {
-		//alert('HARGLE BARGLE');
         // $("#treebankSize").text(CONTENTS.length); // TODO: Report the current loaded treebank size to user
 		$(e.target).find('.modal-body').load('help.html');
 	});
     
     $('#exportModal').on('shown.bs.modal', function(e) {
-		//alert('HARGLE BARGLE');
         // $("#treebankSize").text(CONTENTS.length); // TODO: Report the current loaded treebank size to user
 		$(e.target).find('.modal-body').load('export.html', function() {
             exportPNG(); 
@@ -977,9 +973,4 @@ $(document).ready(function(){
 			toggleTableColumn(columnHeader.title);
 		}
 	});
-	// this way of doing it only responds when icon is clicked:
-	//$('.tableColHeader').on('click', function(e) {
-	//	toggleTableColumn(this.title);
-	//});
 });
-

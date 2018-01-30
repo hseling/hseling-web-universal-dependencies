@@ -63,9 +63,10 @@ function onReady() {
         if (!SERVER_RUNNING) {
             loadFromLocalStorage(); // trying to load the corpus from localStorage
         } else {
+            $('#upload').css('display', 'none');
             getSentence(1); // loading a sentence from the server
         }
-    }, 500)
+    }, 300)
 }
 
 
@@ -167,7 +168,7 @@ function loadFromUrl(argument) {
 }
 
 
-function loadFromFile(e) { // WORKING ON THIS
+function loadFromFile(e) {
     /*
     Loads a corpus from a file from the user's computer,
     puts the filename into localStorage.
@@ -469,7 +470,6 @@ function drawTree() {
     3. */
     
     ISEDITING = false;
-    console.log('drawTree');
     
     // TODO: update the sentence
     try {cy.destroy()} catch (err) {}; // remove the previous tree, if there is one

@@ -134,6 +134,17 @@ class Menu {
       self.gui.config.is_label_bar_visible = !self.gui.config.is_label_bar_visible;
       self.gui.refresh();
     });
+    $('#btnMST').click(e => {
+      var hardcoded = `# text = Если бы мне платили каждый раз.
+1 Если ЕСЛИ SCONJ IN _ 4 mark _ _
+2 бы БЫ PART RP _ 4 discourse _ _
+3 мне Я PRON PRP Case=Dat|Number=Sing|Person=1 4 iobj _ _
+4 платили ПЛАТИТЬ VERB VBC Aspect=Imp|Mood=Ind|Number=Plur|Tense=Past|VerbForm=Fin 0 root _ _
+5 каждый КАЖДЫЙ DET DT Animacy=Inan|Case=Acc|Gender=Masc|Number=Sing 6 amod _ _
+6 раз РАЗ NOUN NN Animacy=Inan|Case=Acc|Gender=Masc|Number=Sing 4 advmod _ SpaceAfter=No
+7 . . PUNCT . _ 4 punct _ _`
+      window.app.corpus.parse(hardcoded)
+    });
     $('[name="show-help"]').click(e => {
       if (!$(e.target).is('.pin'))
         utils.link('/help', '_self');

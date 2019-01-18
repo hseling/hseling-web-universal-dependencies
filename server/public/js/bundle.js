@@ -11468,6 +11468,8 @@ var _ = require('underscore');
 var $ = require('jquery');
 var utils = require('../utils');
 
+var API_ROOT = "http://127.0.0.1/";
+
 var Menu = function () {
   function Menu(gui) {
     _classCallCheck(this, Menu);
@@ -11598,8 +11600,31 @@ var Menu = function () {
         self.gui.refresh();
       });
       $('#btnMST').click(function (e) {
-        var hardcoded = '# text = \u0415\u0441\u043B\u0438 \u0431\u044B \u043C\u043D\u0435 \u043F\u043B\u0430\u0442\u0438\u043B\u0438 \u043A\u0430\u0436\u0434\u044B\u0439 \u0440\u0430\u0437.\n1 \u0415\u0441\u043B\u0438 \u0415\u0421\u041B\u0418 SCONJ IN _ 4 mark _ _\n2 \u0431\u044B \u0411\u042B PART RP _ 4 discourse _ _\n3 \u043C\u043D\u0435 \u042F PRON PRP Case=Dat|Number=Sing|Person=1 4 iobj _ _\n4 \u043F\u043B\u0430\u0442\u0438\u043B\u0438 \u041F\u041B\u0410\u0422\u0418\u0422\u042C VERB VBC Aspect=Imp|Mood=Ind|Number=Plur|Tense=Past|VerbForm=Fin 0 root _ _\n5 \u043A\u0430\u0436\u0434\u044B\u0439 \u041A\u0410\u0416\u0414\u042B\u0419 DET DT Animacy=Inan|Case=Acc|Gender=Masc|Number=Sing 6 amod _ _\n6 \u0440\u0430\u0437 \u0420\u0410\u0417 NOUN NN Animacy=Inan|Case=Acc|Gender=Masc|Number=Sing 4 advmod _ SpaceAfter=No\n7 . . PUNCT . _ 4 punct _ _';
-        window.app.corpus.parse(hardcoded);
+        //       var hardcoded = `# text = Если бы мне платили каждый раз.
+        // 1 Если ЕСЛИ SCONJ IN _ 4 mark _ _
+        // 2 бы БЫ PART RP _ 4 discourse _ _
+        // 3 мне Я PRON PRP Case=Dat|Number=Sing|Person=1 4 iobj _ _
+        // 4 платили ПЛАТИТЬ VERB VBC Aspect=Imp|Mood=Ind|Number=Plur|Tense=Past|VerbForm=Fin 0 root _ _
+        // 5 каждый КАЖДЫЙ DET DT Animacy=Inan|Case=Acc|Gender=Masc|Number=Sing 6 amod _ _
+        // 6 раз РАЗ NOUN NN Animacy=Inan|Case=Acc|Gender=Masc|Number=Sing 4 advmod _ SpaceAfter=No
+        // 7 . . PUNCT . _ 4 punct _ _`
+        //       window.app.corpus.parse(hardcoded)
+        var cur_sentence = $('#text-data').val();
+        // console.log(cur_sentence)
+        fetch(API_ROOT + '/process/example.conllu').then(function (r) {
+          return r.json();
+        }).then(function (content) {
+          var task_id = content.task_id;
+          setTimeout(function () {
+            fetch(API_ROOT + '/status/' + task_id).then(function (r) {
+              return r.json();
+            })
+            // .then((c) => console.log(c.result))
+            .then(function (c) {
+              return window.app.corpus.parse(c.result);
+            });
+          }, 2000);
+        });
       });
       $('[name="show-help"]').click(function (e) {
         if (!$(e.target).is('.pin')) utils.link('/help', '_self');

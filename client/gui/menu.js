@@ -4,6 +4,8 @@ const _ = require('underscore');
 const $ = require('jquery');
 const utils = require('../utils');
 
+const API_ROOT = "http://127.0.0.1/"
+
 
 class Menu {
   constructor(gui) {
@@ -135,15 +137,28 @@ class Menu {
       self.gui.refresh();
     });
     $('#btnMST').click(e => {
-      var hardcoded = `# text = Если бы мне платили каждый раз.
-1 Если ЕСЛИ SCONJ IN _ 4 mark _ _
-2 бы БЫ PART RP _ 4 discourse _ _
-3 мне Я PRON PRP Case=Dat|Number=Sing|Person=1 4 iobj _ _
-4 платили ПЛАТИТЬ VERB VBC Aspect=Imp|Mood=Ind|Number=Plur|Tense=Past|VerbForm=Fin 0 root _ _
-5 каждый КАЖДЫЙ DET DT Animacy=Inan|Case=Acc|Gender=Masc|Number=Sing 6 amod _ _
-6 раз РАЗ NOUN NN Animacy=Inan|Case=Acc|Gender=Masc|Number=Sing 4 advmod _ SpaceAfter=No
-7 . . PUNCT . _ 4 punct _ _`
-      window.app.corpus.parse(hardcoded)
+//       var hardcoded = `# text = Если бы мне платили каждый раз.
+// 1 Если ЕСЛИ SCONJ IN _ 4 mark _ _
+// 2 бы БЫ PART RP _ 4 discourse _ _
+// 3 мне Я PRON PRP Case=Dat|Number=Sing|Person=1 4 iobj _ _
+// 4 платили ПЛАТИТЬ VERB VBC Aspect=Imp|Mood=Ind|Number=Plur|Tense=Past|VerbForm=Fin 0 root _ _
+// 5 каждый КАЖДЫЙ DET DT Animacy=Inan|Case=Acc|Gender=Masc|Number=Sing 6 amod _ _
+// 6 раз РАЗ NOUN NN Animacy=Inan|Case=Acc|Gender=Masc|Number=Sing 4 advmod _ SpaceAfter=No
+// 7 . . PUNCT . _ 4 punct _ _`
+//       window.app.corpus.parse(hardcoded)
+      let cur_sentence = $('#text-data').val()
+      console.log(cur_sentence)
+      fetch(API_ROOT + '/process/example.conllu')
+        .then((r) => {return r.json()})
+        .then((content) => {
+          var task_id = content.task_id
+          setTimeout(()=>{
+            fetch(API_ROOT + '/status/' + task_id)
+              .then((r) => {return r.json()})
+              // .then((c) => console.log(c.result))
+              .then((c) => window.app.corpus.parse(c.result))
+          }, 2000)
+        })
     });
     $('[name="show-help"]').click(e => {
       if (!$(e.target).is('.pin'))

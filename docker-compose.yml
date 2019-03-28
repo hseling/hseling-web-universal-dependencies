@@ -19,7 +19,7 @@ services:
   build: .
   container_name: annotatrix_prod
   ports:
-   - "8000:5316"
+   - "8000:80"
   links:
    - hse-api-web
   environment: *common-variables

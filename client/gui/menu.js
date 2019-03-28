@@ -4,7 +4,7 @@ const _ = require('underscore');
 const $ = require('jquery');
 const utils = require('../utils');
 
-const API_ROOT = "http://127.0.0.1/"
+const API_ROOT = "http://127.0.0.1"
 
 
 class Menu {

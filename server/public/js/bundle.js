@@ -11601,8 +11601,7 @@ var Menu = function () {
       });
       $('#btnMST').click(function (e) {
         var cur_sentence = $('#text-data').val();
-        console.log(cur_sentence);
-        fetch('http://127.0.0.1/process_stream', {
+        fetch(API_ROOT + '/process_stream', {
           method: 'post',
           body: JSON.stringify({ 'sentence': cur_sentence }),
           headers: { 'Content-Type': 'application/json' }
@@ -11613,10 +11612,9 @@ var Menu = function () {
           setTimeout(function () {
             fetch(API_ROOT + '/status/' + task_id).then(function (r) {
               return r.json();
-            })
-            // .then((c) => console.log(c.result))
-            .then(function (c) {
-              return window.app.corpus.parse(c.result);
+            }).then(function (c) {
+              window.app.corpus.parse(c.result);
+              console.log(c.result);
             });
           }, 2000);
         });

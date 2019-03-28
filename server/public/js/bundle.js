@@ -11468,7 +11468,7 @@ var _ = require('underscore');
 var $ = require('jquery');
 var utils = require('../utils');
 
-var API_ROOT = "http://127.0.0.1";
+var API_ROOT = "/api";
 
 var Menu = function () {
   function Menu(gui) {

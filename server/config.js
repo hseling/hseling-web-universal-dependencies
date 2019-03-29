@@ -11,7 +11,7 @@ let cfg = {};
 // basic app config
 cfg.port = process.env.ANNOTATRIX_PORT
   || process.env.PORT
-  || 5316;
+  || 80;
 cfg.host = process.env.ANNOTATRIX_HOST
   || process.env.HOST
   || 'localhost';

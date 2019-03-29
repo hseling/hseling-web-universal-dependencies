@@ -4,6 +4,8 @@ const _ = require('underscore');
 const $ = require('jquery');
 const utils = require('../utils');
 
+const API_ROOT = "/api"
+
 
 class Menu {
   constructor(gui) {
@@ -133,6 +135,26 @@ class Menu {
 
       self.gui.config.is_label_bar_visible = !self.gui.config.is_label_bar_visible;
       self.gui.refresh();
+    });
+    $('#btnMST').click(e => {
+      let cur_sentence = $('#text-data').val()
+      fetch(API_ROOT + '/process_stream', {
+        method: 'post',
+        body:    JSON.stringify({'sentence': cur_sentence}),
+        headers: { 'Content-Type': 'application/json' },
+      })
+        .then((r) => {return r.json()})
+        .then((content) => {
+          var task_id = content.task_id
+          setTimeout(()=>{
+            fetch(API_ROOT + '/status/' + task_id)
+              .then((r) => {return r.json()})
+              .then((c) => {
+                window.app.corpus.parse(c.result)
+                console.log(c.result)
+              })
+          }, 2000)
+        })
     });
     $('[name="show-help"]').click(e => {
       if (!$(e.target).is('.pin'))

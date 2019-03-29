@@ -79,7 +79,7 @@ module.exports = app => {
 
   // ---------------------------
   // core
-  app.get('/', (req, res) => {
+  app.get('/web/', (req, res) => {
     getTreebanksList((err, treebanks) => {
       res.render('index.ejs', {
         base: `${cfg.protocol}://${cfg.host}:${cfg.port}`,
